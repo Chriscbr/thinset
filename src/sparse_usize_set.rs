@@ -5,6 +5,8 @@
 ///
 /// The implementation isn't space efficient since it allocates
 /// a vector of size `max_size` to store a sparse lookup table.
+///
+/// Based on "An efficient representation for sparse sets" (1993) by Briggs and Torczon.
 pub struct SparseUsizeSet {
     max_value: usize,
     sparse: Vec<usize>,
