@@ -161,6 +161,8 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
 /// An iterator over the elements of a `SparseSet`.
 ///
 /// This struct is created by the [`iter`] method on [`SparseSet`].
+///
+/// [`iter`]: SparseSet::iter
 pub struct SparseSetIter<'a, T: PrimInt + Unsigned> {
     iter: std::slice::Iter<'a, T>,
 }
@@ -191,6 +193,8 @@ impl<T: PrimInt + Unsigned> IntoIterator for SparseSet<T> {
 /// An iterator over the elements of a `SparseSet`.
 ///
 /// This struct is created by the [`into_iter`] method on [`SparseSet`].
+///
+/// [`into_iter`]: SparseSet::into_iter
 pub struct SparseSetIntoIter<T: PrimInt + Unsigned> {
     iter: std::vec::IntoIter<T>,
 }
