@@ -21,10 +21,10 @@
 [crates.io link]: https://crates.io/crates/thinset
 [docs.rs badge]: https://docs.rs/thinset/badge.svg?version=0.1.0
 [docs.rs link]: https://docs.rs/thinset/0.1.0/thinset/
-[github ci badge]: https://github.com/contain-rs/linked-hash-map/workflows/Rust/badge.svg?branch=master
+[github ci badge]: https://github.com/Chriscbr/thinset/actions/workflows/rust.yml/badge.svg
 [rustc 1.0+]: https://img.shields.io/badge/rustc-1.0%2B-blue.svg
 [Rust 1.0]: https://blog.rust-lang.org/2015/05/15/Rust-1.0.html
-[deps.rs status]: https://deps.rs/crate/thinset/0.1.0/status.svg
+[deps.rs status]: https://deps.rs/repo/github/Chriscbr/thinset/status.svg
 [deps.rs link]: https://deps.rs/crate/thinset/0.1.0
 [shields.io download count]: https://img.shields.io/crates/d/thinset.svg
 
@@ -46,14 +46,14 @@ An implementation of a set using a pair of sparse and dense arrays as backing st
 This type of set is useful when you need to efficiently track set membership for integers
 from a large universe, but the values are relatively spread apart.
 
-The sparse set supports constant-time insertion, removal, lookups.
+The sparse set supports constant-time insertion, removal, lookups as expected.
+In addition:
 
-Compared to the standard library's `HashSet`, clearing the set is constant-time instead of
-linear time.
-Compared to bitmap-based sets like the `bit-set` crate, iteration over the set is
-proportional to the cardinality of the set (how many elements you have) instead of proportional
-to the maximum size of the set.
-The only downside is that the set requires more memory than other set implementations.
+- Compared to the standard library's `HashSet`, clearing the set is constant-time instead of linear time.
+- Compared to bitmap-based sets like the `bit-set` crate, iteration over the set is
+proportional to the cardinality of the set (how many elements you have) instead of proportional to the maximum size of the set.
+
+The main downside is that the set requires more memory than other set implementations.
 
 The implementation is based on the paper "An efficient representation for sparse sets" (1993)
 by Briggs and Torczon.

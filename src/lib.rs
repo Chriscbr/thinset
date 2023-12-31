@@ -3,14 +3,14 @@
 //! This type of set is useful when you need to efficiently track set membership for integers
 //! from a large universe, but the values are relatively spread apart.
 //!
-//! The sparse set supports constant-time insertion, removal, lookups.
+//! The sparse set supports constant-time insertion, removal, lookups as expected.
+//! In addition:
 //!
-//! Compared to the standard library's `HashSet`, clearing the set is constant-time instead of
-//! linear time.
-//! Compared to bitmap-based sets like the `bit-set` crate, iteration over the set is
-//! proportional to the cardinality of the set (how many elements you have) instead of proportional
-//! to the maximum size of the set.
-//! The only downside is that the set requires more memory than other set implementations.
+//! - Compared to the standard library's `HashSet`, clearing the set is constant-time instead of linear time.
+//! - Compared to bitmap-based sets like the `bit-set` crate, iteration over the set is
+//! proportional to the cardinality of the set (how many elements you have) instead of proportional to the maximum size of the set.
+//!
+//! The main downside is that the set requires more memory than other set implementations.
 //!
 //! The implementation is based on the paper "An efficient representation for sparse sets" (1993)
 //! by Briggs and Torczon.
