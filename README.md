@@ -1,7 +1,7 @@
 <div align="center">
   <h1>thinset</h1>
   <p>
-    <strong>A set implementation for sparse sets of unsigned integers.</strong>
+    <strong>A data structure optimized for sparse sets of unsigned integers.</strong>
   </p>
   <p>
 
