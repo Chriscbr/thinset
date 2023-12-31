@@ -1,5 +1,5 @@
 [package]
-name = "sparse-vec"
+name = "thinset"
 version = "0.1.0"
 edition = "2021"
 
