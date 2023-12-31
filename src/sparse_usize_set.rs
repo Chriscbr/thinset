@@ -98,6 +98,14 @@ impl SparseUsizeSet {
     pub fn len(&self) -> usize {
         self.dense.len()
     }
+
+    /// Removes all elements from the set.
+    ///
+    /// This operation is O(1). It does not deallocate memory.
+    pub fn clear(&mut self) {
+        // the dense array contains integers, so no destructors need to be called
+        self.dense.clear();
+    }
 }
 
 #[cfg(test)]
@@ -138,6 +146,11 @@ mod tests {
         assert!(!set.contains(5));
         assert!(set.contains(6));
         assert!(set.contains(7));
+
+        set.clear();
+
+        assert!(set.is_empty());
+        assert_eq!(set.len(), 0);
     }
 
     #[should_panic]
