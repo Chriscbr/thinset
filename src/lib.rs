@@ -1,10 +1,10 @@
-//! An implementation of a set using a sparse and dense array as an underlying
-//! representation for holding unsigned numbers.
+//! An implementation of a set using a pair of sparse and dense arrays as backing stores.
 //!
-//! This type of set is useful when you need to efficiently track set membership for items
-//! from a large universe, but the number of items in the sets is comparatively smaller.
+//! This type of set is useful when you need to efficiently track set membership for integers
+//! from a large universe, but the values are relatively spread apart.
 //!
 //! The sparse set supports constant-time insertion, removal, lookups.
+//!
 //! Compared to the standard library's `HashSet`, clearing the set is constant-time instead of
 //! linear time.
 //! Compared to bitmap-based sets like the `bit-set` crate, iteration over the set is
