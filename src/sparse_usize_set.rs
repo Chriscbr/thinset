@@ -110,8 +110,7 @@ impl SparseUsizeSet {
     /// An iterator visiting all elements in arbitrary order.
     pub fn iter(&self) -> SparseUsizeSetIter<'_> {
         SparseUsizeSetIter {
-            dense: &self.dense,
-            index: 0,
+            iter: self.dense.iter(),
         }
     }
 }
@@ -120,22 +119,48 @@ impl SparseUsizeSet {
 ///
 /// This struct is created by the [`iter`] method on [`SparseUsizeSet`].
 pub struct SparseUsizeSetIter<'a> {
-    dense: &'a [usize],
-    index: usize,
+    iter: std::slice::Iter<'a, usize>,
 }
 
 impl<'a> Iterator for SparseUsizeSetIter<'a> {
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.index >= self.dense.len() {
-            return None;
+        self.iter.next().copied()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
+impl IntoIterator for SparseUsizeSet {
+    type Item = usize;
+    type IntoIter = SparseUsizeSetIntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        SparseUsizeSetIntoIter {
+            iter: self.dense.into_iter(),
         }
+    }
+}
 
-        let value = self.dense[self.index];
-        self.index += 1;
+/// An iterator over the elements of a `SparseUsizeSet`.
+///
+/// This struct is created by the [`into_iter`] method on [`SparseUsizeSet`].
+pub struct SparseUsizeSetIntoIter {
+    iter: std::vec::IntoIter<usize>,
+}
 
-        Some(value)
+impl Iterator for SparseUsizeSetIntoIter {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
     }
 }
 
