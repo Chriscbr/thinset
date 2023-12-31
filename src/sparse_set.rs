@@ -1,4 +1,7 @@
-/// A sparse set of usize values, that supports
+use num_traits::PrimInt;
+use num_traits::Unsigned;
+
+/// A sparse set of integer values, that supports
 /// constant-time insertion, removal, lookup, and clearing,
 /// as well as iteration that is proportional to the cardinality of the set
 /// rather than the maximum size of the set.
@@ -7,39 +10,43 @@
 /// a vector of size `max_size` to store a sparse lookup table.
 ///
 /// Based on "An efficient representation for sparse sets" (1993) by Briggs and Torczon.
-pub struct SparseUsizeSet {
-    max_value: usize,
+pub struct SparseSet<T: PrimInt + Unsigned> {
+    max_value: T,
     sparse: Vec<usize>,
-    dense: Vec<usize>,
+    dense: Vec<T>,
 }
 
-impl SparseUsizeSet {
-    /// Creates an empty SparseUsizeSet.
+impl<T: PrimInt + Unsigned> SparseSet<T> {
+    /// Creates an empty SparseSet.
     ///
     /// The size of the universe of values must be specified. For example, if the set will contain
     /// values in the range [0, 1000), then `max_value` should be 1000.
     #[allow(clippy::uninit_vec)]
     pub fn new(max_value: usize) -> Self {
         // allocate a vector of size `max_value` and initialize it with garbage values
+
+        let max_value_capped = T::from(max_value)
+            .expect("max_value is greater than the maximum value for the sparse set type");
         let mut sparse = Vec::with_capacity(max_value);
         unsafe {
             sparse.set_len(max_value);
         }
 
         Self {
-            max_value,
+            max_value: max_value_capped,
             sparse,            // sparse lookup table from index to position in dense
             dense: Vec::new(), // list of the values in the set
         }
     }
 
     /// Returns true if the set contains a value.
-    pub fn contains(&self, value: usize) -> bool {
+    pub fn contains(&self, value: T) -> bool {
         if value >= self.max_value {
-            panic!("value is greater than the set's max_value");
+            panic!("value is greater than or equal to the set's max_value");
         }
 
-        let r = self.sparse[value];
+        let uvalue = value.to_usize().unwrap();
+        let r = self.sparse[uvalue];
 
         r < self.dense.len() && self.dense[r] == value
     }
@@ -49,31 +56,33 @@ impl SparseUsizeSet {
     /// Returns whether the value was newly inserted. That is:
     /// - If the set did not previously contain this value, true is returned.
     /// - If the set already contained this value, false is returned, and the set is not modified.
-    pub fn insert(&mut self, value: usize) -> bool {
+    pub fn insert(&mut self, value: T) -> bool {
         if value >= self.max_value {
-            panic!("value is greater than the set's max_value");
+            panic!("value is greater than or equal to the set's max_value");
         }
 
-        let r = self.sparse[value];
+        let uvalue = value.to_usize().unwrap();
+        let r = self.sparse[uvalue];
 
         // if the value is already in the set, return early
         if r < self.dense.len() && self.dense[r] == value {
             return false;
         }
 
-        self.sparse[value] = self.dense.len();
+        self.sparse[uvalue] = self.dense.len();
         self.dense.push(value);
 
         true
     }
 
     /// Removes a value from the set. Returns whether the value was present in the set.
-    pub fn remove(&mut self, value: usize) -> bool {
+    pub fn remove(&mut self, value: T) -> bool {
         if value >= self.max_value {
-            panic!("value is greater than the set's max_value");
+            panic!("value is greater than or equal to the set's max_value");
         }
 
-        let r = self.sparse[value]; // 0
+        let uvalue = value.to_usize().unwrap();
+        let r = self.sparse[uvalue]; // 0
 
         // if the value isn't in the set, return early
         if r >= self.dense.len() || self.dense[r] != value {
@@ -83,7 +92,7 @@ impl SparseUsizeSet {
         // swap the value with the last value in the dense array
         let last_value = self.dense[self.dense.len() - 1];
         self.dense[r] = last_value;
-        self.sparse[last_value] = r;
+        self.sparse[last_value.to_usize().unwrap()] = r;
 
         // remove the value from the dense array
         self.dense.pop();
@@ -110,22 +119,22 @@ impl SparseUsizeSet {
     }
 
     /// An iterator visiting all elements in arbitrary order.
-    pub fn iter(&self) -> SparseUsizeSetIter<'_> {
-        SparseUsizeSetIter {
+    pub fn iter(&self) -> SparseSetIter<'_, T> {
+        SparseSetIter {
             iter: self.dense.iter(),
         }
     }
 }
 
-/// An iterator over the elements of a `SparseUsizeSet`.
+/// An iterator over the elements of a `SparseSet`.
 ///
-/// This struct is created by the [`iter`] method on [`SparseUsizeSet`].
-pub struct SparseUsizeSetIter<'a> {
-    iter: std::slice::Iter<'a, usize>,
+/// This struct is created by the [`iter`] method on [`SparseSet`].
+pub struct SparseSetIter<'a, T: PrimInt + Unsigned> {
+    iter: std::slice::Iter<'a, T>,
 }
 
-impl<'a> Iterator for SparseUsizeSetIter<'a> {
-    type Item = usize;
+impl<'a, T: PrimInt + Unsigned> Iterator for SparseSetIter<'a, T> {
+    type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().copied()
@@ -136,26 +145,26 @@ impl<'a> Iterator for SparseUsizeSetIter<'a> {
     }
 }
 
-impl IntoIterator for SparseUsizeSet {
-    type Item = usize;
-    type IntoIter = SparseUsizeSetIntoIter;
+impl<T: PrimInt + Unsigned> IntoIterator for SparseSet<T> {
+    type Item = T;
+    type IntoIter = SparseSetIntoIter<T>;
 
     fn into_iter(self) -> Self::IntoIter {
-        SparseUsizeSetIntoIter {
+        SparseSetIntoIter {
             iter: self.dense.into_iter(),
         }
     }
 }
 
-/// An iterator over the elements of a `SparseUsizeSet`.
+/// An iterator over the elements of a `SparseSet`.
 ///
-/// This struct is created by the [`into_iter`] method on [`SparseUsizeSet`].
-pub struct SparseUsizeSetIntoIter {
-    iter: std::vec::IntoIter<usize>,
+/// This struct is created by the [`into_iter`] method on [`SparseSet`].
+pub struct SparseSetIntoIter<T: PrimInt + Unsigned> {
+    iter: std::vec::IntoIter<T>,
 }
 
-impl Iterator for SparseUsizeSetIntoIter {
-    type Item = usize;
+impl<T: PrimInt + Unsigned> Iterator for SparseSetIntoIter<T> {
+    type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next()
@@ -172,7 +181,7 @@ mod tests {
 
     #[test]
     fn sparse_usize_set() {
-        let set = SparseUsizeSet::new(50);
+        let set: SparseSet<usize> = SparseSet::new(50);
         assert!(set.is_empty());
         assert_eq!(set.len(), 0);
 
@@ -213,7 +222,7 @@ mod tests {
 
     #[test]
     fn sparse_usize_set_iter() {
-        let mut set = SparseUsizeSet::new(50);
+        let mut set: SparseSet<usize> = SparseSet::new(50);
         set.insert(3);
         set.insert(4);
         set.insert(5);
@@ -240,9 +249,15 @@ mod tests {
 
     #[should_panic]
     #[test]
-    fn sparse_usize_set_index_out_of_bounds() {
-        let set = SparseUsizeSet::new(0);
+    fn sparse_usize_set_contains_value_out_of_bounds() {
+        let set: SparseSet<usize> = SparseSet::new(0);
         assert_eq!(set.len(), 0);
         set.contains(0);
+    }
+
+    #[should_panic]
+    #[test]
+    fn sparse_usize_set_constructor_value_out_of_bounds() {
+        let _set: SparseSet<u8> = SparseSet::new(u8::MAX as usize + 1);
     }
 }
