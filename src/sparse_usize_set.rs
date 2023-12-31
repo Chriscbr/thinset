@@ -37,21 +37,21 @@ impl SparseUsizeSet {
         r < self.dense.len() && self.dense[r] == value
     }
 
-    // pub fn insert(&mut self, index: usize) {
-    //     if index >= self.size {
-    //         panic!("index out of bounds");
-    //     }
+    pub fn insert(&mut self, value: usize) {
+        if value >= self.max_size {
+            panic!("index out of bounds");
+        }
 
-    //     if self.contains(index) {
-    //         return;
-    //     }
+        let r = self.sparse[value];
 
-    //     if self.sparse.len() < index + 1 {
-    //         self.sparse.resize(index + 1, self.dense.len());
-    //     }
-    //     self.sparse[index] = self.dense.len();
-    //     self.dense.push(index);
-    // }
+        // if the value is already in the set, return early
+        if r < self.dense.len() && self.dense[r] == value {
+            return;
+        }
+
+        self.sparse[value] = self.dense.len();
+        self.dense.push(value);
+    }
 
     // pub fn remove(&mut self, index: usize) {
     //     if index >= self.size {
@@ -91,5 +91,16 @@ mod tests {
 
         assert!(!set.contains(0));
         assert!(!set.contains(42));
+        assert!(!set.contains(5));
+
+        let mut set = set;
+        set.insert(0);
+        set.insert(42);
+
+        assert!(!set.is_empty());
+        assert_eq!(set.len(), 2);
+        assert!(set.contains(0));
+        assert!(set.contains(42));
+        assert!(!set.contains(5))
     }
 }
