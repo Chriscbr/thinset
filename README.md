@@ -39,6 +39,46 @@ thinset = "0.1"
 
 <!-- cargo-rdme start -->
 
+An implementation of a set using a sparse and dense array as an underlying
+representation for holding unsigned numbers.
+
+This type of set is useful when you need to efficiently track set membership for items
+from a large universe, but the number of items in the sets is comparatively smaller.
+
+The sparse set supports constant-time insertion, removal, lookups.
+Compared to the standard library's `HashSet`, clearing the set is constant-time instead of
+linear time.
+Compared to bitmap-based sets like the `bit-set` crate, iteration over the set is
+proportional to the cardinality of the set (how many elements you have) instead of proportional
+to the maximum size of the set.
+The only downside is that the set requires more memory than other set implementations.
+
+The implementation is based on the paper "An efficient representation for sparse sets" (1993)
+by Briggs and Torczon.
+
+### Examples
+
+```rust
+use thinset::SparseSet;
+
+// Specify a maximum value for the set
+let mut s: SparseSet<usize> = SparseSet::new(100);
+s.insert(0);
+s.insert(3);
+s.insert(7);
+
+s.remove(7);
+
+if !s.contains(7) {
+    println!("There is no 7");
+}
+
+// Print 0, 1, 3 in some order
+for x in s.iter() {
+    println!("{}", x);
+}
+```
+
 <!-- cargo-rdme end -->
 
 ## License
