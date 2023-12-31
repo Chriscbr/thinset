@@ -6,6 +6,7 @@ license = "MIT/Apache-2.0"
 description = "A sparse set implemention for unsigned integer types with constant-time clearing and iteration operations."
 repository = "https://github.com/Chriscbr/thinset"
 homepage = "https://github.com/Chriscbr/thinset"
+documentation = "https://docs.rs/thinset/"
 keywords = ["data-structures", "set", "sparse", "sparse-set"]
 readme = "README.md"
 edition = "2021"
