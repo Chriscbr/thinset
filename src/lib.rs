@@ -173,7 +173,7 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
 
         true
     }
-
+ 
     /// Returns true if the set contains no elements.
     pub fn is_empty(&self) -> bool {
         self.dense.is_empty()
