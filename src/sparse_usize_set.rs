@@ -106,6 +106,37 @@ impl SparseUsizeSet {
         // the dense array contains integers, so no destructors need to be called
         self.dense.clear();
     }
+
+    /// An iterator visiting all elements in arbitrary order.
+    pub fn iter(&self) -> SparseUsizeSetIter<'_> {
+        SparseUsizeSetIter {
+            dense: &self.dense,
+            index: 0,
+        }
+    }
+}
+
+/// An iterator over the elements of a `SparseUsizeSet`.
+///
+/// This struct is created by the [`iter`] method on [`SparseUsizeSet`].
+pub struct SparseUsizeSetIter<'a> {
+    dense: &'a [usize],
+    index: usize,
+}
+
+impl<'a> Iterator for SparseUsizeSetIter<'a> {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index >= self.dense.len() {
+            return None;
+        }
+
+        let value = self.dense[self.index];
+        self.index += 1;
+
+        Some(value)
+    }
 }
 
 #[cfg(test)]
@@ -151,6 +182,33 @@ mod tests {
 
         assert!(set.is_empty());
         assert_eq!(set.len(), 0);
+    }
+
+    #[test]
+    fn sparse_usize_set_iter() {
+        let mut set = SparseUsizeSet::new(50);
+        set.insert(3);
+        set.insert(4);
+        set.insert(5);
+
+        let mut iter = set.iter();
+        assert_eq!(iter.next(), Some(3));
+        assert_eq!(iter.next(), Some(4));
+        assert_eq!(iter.next(), Some(5));
+        assert_eq!(iter.next(), None);
+
+        set.remove(4);
+
+        let mut iter = set.iter();
+        assert_eq!(iter.next(), Some(3));
+        assert_eq!(iter.next(), Some(5));
+        assert_eq!(iter.next(), None);
+
+        set.remove(3);
+        set.remove(5);
+
+        let mut iter = set.iter();
+        assert_eq!(iter.next(), None);
     }
 
     #[should_panic]
