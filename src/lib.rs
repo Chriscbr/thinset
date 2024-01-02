@@ -109,10 +109,10 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
     /// Returns whether the value was newly inserted. That is:
     /// - If the set did not previously contain this value, true is returned.
     /// - If the set already contained this value, false is returned, and the set is not modified.
-    /// 
+    ///
     /// # Panics
-    /// 
-    /// If `value` cannot be cast to `usize`. 
+    ///
+    /// If `value` cannot be cast to `usize`.
     pub fn insert(&mut self, value: T) -> bool {
         let uvalue = value.to_usize().unwrap();
         if uvalue >= self.cap {
@@ -168,12 +168,12 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
         // Remove the value by giving its slot to the last value in `dense`.
         let last_value = self.dense[self.dense.len() - 1];
         self.dense[r] = last_value;
-        self.sparse[last_value.to_usize().unwrap()] = r;  // Update `last_value`'s link into `sparse`.
-        self.dense.pop();  // Delete the now expendable copy of `last_value` from the end of `dense`.
+        self.sparse[last_value.to_usize().unwrap()] = r; // Update `last_value`'s link into `sparse`.
+        self.dense.pop(); // Delete the now expendable copy of `last_value` from the end of `dense`.
 
         true
     }
- 
+
     /// Returns true if the set contains no elements.
     pub fn is_empty(&self) -> bool {
         self.dense.is_empty()
@@ -356,11 +356,8 @@ mod tests {
         }
         {
             let set: SparseSet<u8> = set![
-                    9,
-                    10,
-                    11,
-                    100,  // Note the trailing comma is allowed for visual uniformity.
-                ];
+                9, 10, 11, 100, // Note the trailing comma is allowed for visual uniformity.
+            ];
             assert!(set.contains(100));
             assert!(set.contains(9));
             assert!(set.contains(10));
@@ -455,14 +452,14 @@ mod tests {
         let mut check = Vec::with_capacity(n_iters);
 
         let mut s: SparseSet<u32> = SparseSet::new();
-    
+
         // Check that inserting random values works.
         for _ in 0..n_iters {
             let x = rng.gen_range(0..10000);
             s.insert(x);
             check.push(x);
         }
-        
+
         // Check that all of the inserted values are actually inserted.
         for &x in &check {
             assert!(s.contains(x));

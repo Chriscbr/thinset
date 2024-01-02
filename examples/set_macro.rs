@@ -1,4 +1,4 @@
-use thinset::{SparseSet, set};
+use thinset::{set, SparseSet};
 
 fn main() {
     let mut set: SparseSet<u32> = set![4, 32, 16, 24, 63];
