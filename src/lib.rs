@@ -42,7 +42,7 @@ use num_traits::Unsigned;
 
 /// A sparse set of integer values.
 pub struct SparseSet<T: PrimInt + Unsigned> {
-    max_value: usize,
+    cap: usize,
     sparse: Vec<usize>,
     dense: Vec<T>,
 }
@@ -82,7 +82,7 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
         }
 
         Self {
-            max_value: cap.saturating_add(1),
+            cap,
             sparse,
             dense: Vec::new(),
         }
@@ -95,7 +95,7 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
     /// If `value` cannot be cast to `usize`.
     pub fn contains(&self, value: T) -> bool {
         let uvalue = value.to_usize().unwrap();
-        if uvalue > self.max_value {
+        if uvalue >= self.cap {
             return false;
         }
 
@@ -115,7 +115,7 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
     /// If `value` cannot be cast to `usize`. 
     pub fn insert(&mut self, value: T) -> bool {
         let uvalue = value.to_usize().unwrap();
-        if uvalue > self.max_value {
+        if uvalue >= self.cap {
             self.grow_to_max(uvalue);
         }
 
@@ -144,7 +144,7 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
             self.sparse.set_len(cap);
         }
 
-        self.max_value = new_max;
+        self.cap = cap;
     }
 
     /// Removes a value from the set. Returns whether the value was present in the set.
@@ -154,7 +154,7 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
     /// If `value` cannot be cast to `usize`.
     pub fn remove(&mut self, value: T) -> bool {
         let uvalue = value.to_usize().unwrap();
-        if uvalue > self.max_value {
+        if uvalue >= self.cap {
             return false;
         }
 
@@ -409,12 +409,14 @@ mod tests {
         assert_eq!(iter.next(), None);
     }
 
-    #[should_panic]
     #[test]
     fn sparse_set_contains_value_out_of_bounds() {
-        let set: SparseSet<usize> = SparseSet::with_capacity(0);
+        let mut set: SparseSet<usize> = SparseSet::with_capacity(0);
         assert_eq!(set.len(), 0);
-        set.contains(0);
+        assert!(!set.contains(0));
+        assert!(!set.contains(100));
+        set.insert(4);
+        assert!(set.contains(4));
     }
 
     #[test]
