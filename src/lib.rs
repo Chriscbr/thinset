@@ -204,7 +204,7 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
 ///
 /// ```rust
 /// use thinset::{set, SparseSet};
-/// let mut set: SparseSet<u32> = set!(4, 32, 16, 24, 63);
+/// let mut set: SparseSet<u32> = set![4, 32, 16, 24, 63];
 /// assert!(set.contains(32));
 /// assert!(set.contains(63));
 /// set.insert(25);
@@ -326,7 +326,7 @@ mod tests {
     #[test]
     fn sparse_set_macro_example() {
         {
-            let mut set: SparseSet<u32> = set!(1, 2, 3, 4, 5, 6, 6, 7, 7, 7);
+            let mut set: SparseSet<u32> = set![1, 2, 3, 4, 5, 6, 6, 7, 7, 7];
             for i in 1..7 {
                 assert!(set.contains(i));
             }
@@ -336,7 +336,7 @@ mod tests {
             assert!(set.contains(1000));
         }
         {
-            let mut set: SparseSet<u32> = set!(1, 2, 3, 54, 100);
+            let mut set: SparseSet<u32> = set![1, 2, 3, 54, 100];
             assert!(set.contains(1));
             assert!(set.contains(2));
             assert!(set.contains(3));
@@ -355,12 +355,12 @@ mod tests {
             assert!(!set.contains(100));
         }
         {
-            let set: SparseSet<u8> = set!(
+            let set: SparseSet<u8> = set![
                     9,
                     10,
                     11,
                     100,  // Note the trailing comma is allowed for visual uniformity.
-                );
+                ];
             assert!(set.contains(100));
             assert!(set.contains(9));
             assert!(set.contains(10));
@@ -449,16 +449,16 @@ mod tests {
         use rand::Rng;
         let mut rng = rand::thread_rng();
 
-        let n_iters = rng.gen_range(0x100 .. 0x1000);
+        let n_iters = rng.gen_range(0x100..0x1000);
         let mut check = Vec::with_capacity(n_iters);
 
         let mut s: SparseSet<u32> = SparseSet::new();
     
         // Check that inserting random values works.
         for _ in 0..n_iters {
-            let x = rng.gen_range(0 .. 10000);
-           s.insert(x);
-           check.push(x);
+            let x = rng.gen_range(0..10000);
+            s.insert(x);
+            check.push(x);
         }
         
         // Check that all of the inserted values are actually inserted.
