@@ -20,8 +20,7 @@
 //! ```
 //! use thinset::SparseSet;
 //!
-//! // Specify a maximum value for the set
-//! let mut s: SparseSet<usize> = SparseSet::new(100);
+//! let mut s: SparseSet<usize> = SparseSet::new();
 //! s.insert(0);
 //! s.insert(3);
 //! s.insert(7);
@@ -43,41 +42,63 @@ use num_traits::Unsigned;
 
 /// A sparse set of integer values.
 pub struct SparseSet<T: PrimInt + Unsigned> {
-    max_value: T,
+    cap: usize,
     sparse: Vec<usize>,
     dense: Vec<T>,
 }
 
 impl<T: PrimInt + Unsigned> SparseSet<T> {
     /// Creates an empty SparseSet.
-    ///
-    /// The size of the universe of values must be specified. For example, if the set will contain
-    /// values in the range [0, 1000), then `max_value` should be 1000.
-    #[allow(clippy::uninit_vec)]
-    pub fn new(max_value: usize) -> Self {
-        let max_value_capped = T::from(max_value)
-            .expect("max_value is greater than the maximum value for the sparse set's type");
+    pub fn new() -> Self {
+        Self::with_capacity(0x1000)
+    }
 
-        // allocate a vector of size `max_value` and initialize it with garbage values
-        let mut sparse = Vec::with_capacity(max_value);
+    /// Creates an empty SparseSet that's allocated to store elements
+    /// with values up to `cap - 1` without allocating more memory.
+    ///
+    /// If `cap` is greater than the largest number of unique `T`s, then the capacity
+    /// of the set is decreased to only hold exactly the largest number of unique `T`s.
+    /// For example, if `T` is `u8` and the capacity `10000` is given, only `255`
+    /// elements will be allocated, because it's impossible for a set of `u8`s to hold
+    /// any more elements than `255`.
+    #[allow(clippy::uninit_vec)]
+    pub fn with_capacity(cap: usize) -> Self {
+        // If the system's size allows it, `max_cap` is big enough to hold all unique `T`s.
+        let max_cap = T::max_value()
+            .to_usize()
+            .unwrap_or(usize::MAX)
+            .saturating_add(1);
+        let cap = cap.min(max_cap);
+
+        // Allocate a vector size `cap` and initialize it with garbage values.
+        // SAFETY: The call to `with_capacity(cap)` ensures that `set_len(cap)`
+        // will succeed. `sparse` maybe be filled with garbage simply based on how
+        // the set works. An element is only considered part of the set if the entires
+        // in `dense` and `sparse` are linked correctly. Thus, memory in `sparse` must
+        // not be initialized.
+        let mut sparse = Vec::with_capacity(cap);
         unsafe {
-            sparse.set_len(max_value);
+            sparse.set_len(cap);
         }
 
         Self {
-            max_value: max_value_capped,
-            sparse,            // sparse lookup table from index to position in dense
-            dense: Vec::new(), // list of the values in the set
+            cap,
+            sparse,
+            dense: Vec::new(),
         }
     }
 
     /// Returns true if the set contains a value.
+    ///
+    /// # Panics
+    ///
+    /// If `value` cannot be cast to `usize`.
     pub fn contains(&self, value: T) -> bool {
-        if value >= self.max_value {
-            panic!("value is greater than or equal to the set's max_value");
+        let uvalue = value.to_usize().unwrap();
+        if uvalue >= self.cap {
+            return false;
         }
 
-        let uvalue = value.to_usize().unwrap();
         let r = self.sparse[uvalue];
 
         r < self.dense.len() && self.dense[r] == value
@@ -88,15 +109,19 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
     /// Returns whether the value was newly inserted. That is:
     /// - If the set did not previously contain this value, true is returned.
     /// - If the set already contained this value, false is returned, and the set is not modified.
+    ///
+    /// # Panics
+    ///
+    /// If `value` cannot be cast to `usize`.
     pub fn insert(&mut self, value: T) -> bool {
-        if value >= self.max_value {
-            panic!("value is greater than or equal to the set's max_value");
+        let uvalue = value.to_usize().unwrap();
+        if uvalue >= self.cap {
+            self.grow_to_max(uvalue);
         }
 
-        let uvalue = value.to_usize().unwrap();
         let r = self.sparse[uvalue];
 
-        // if the value is already in the set, return early
+        // If the value is already in the set, return early.
         if r < self.dense.len() && self.dense[r] == value {
             return false;
         }
@@ -107,27 +132,44 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
         true
     }
 
-    /// Removes a value from the set. Returns whether the value was present in the set.
-    pub fn remove(&mut self, value: T) -> bool {
-        if value >= self.max_value {
-            panic!("value is greater than or equal to the set's max_value");
+    fn grow_to_max(&mut self, new_max: usize) {
+        let cap = new_max
+            .checked_add(1)
+            .expect("maximum value is greater than the maximum allowed by the system's usize");
+        // SAFETY: The call to `reserve_exact(cap - self.sparse.len())` ensures that the capacity is
+        // greater or equal to `cap` so that `set_len(cap)` will succeed. See `Self::with_capacity`
+        // for more info on uninitialized memory in `sparse`.
+        self.sparse.reserve_exact(cap - self.sparse.len());
+        unsafe {
+            self.sparse.set_len(cap);
         }
 
-        let uvalue = value.to_usize().unwrap();
-        let r = self.sparse[uvalue]; // 0
+        self.cap = cap;
+    }
 
-        // if the value isn't in the set, return early
+    /// Removes a value from the set. Returns whether the value was present in the set.
+    ///
+    /// # Panics
+    ///
+    /// If `value` cannot be cast to `usize`.
+    pub fn remove(&mut self, value: T) -> bool {
+        let uvalue = value.to_usize().unwrap();
+        if uvalue >= self.cap {
+            return false;
+        }
+
+        let r = self.sparse[uvalue];
+
+        // If the value isn't in the set, return early.
         if r >= self.dense.len() || self.dense[r] != value {
             return false;
         }
 
-        // swap the value with the last value in the dense array
+        // Remove the value by giving its slot to the last value in `dense`.
         let last_value = self.dense[self.dense.len() - 1];
         self.dense[r] = last_value;
-        self.sparse[last_value.to_usize().unwrap()] = r;
-
-        // remove the value from the dense array
-        self.dense.pop();
+        self.sparse[last_value.to_usize().unwrap()] = r; // Update `last_value`'s link into `sparse`.
+        self.dense.pop(); // Delete the now expendable copy of `last_value` from the end of `dense`.
 
         true
     }
@@ -146,7 +188,7 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
     ///
     /// This operation is O(1). It does not deallocate memory.
     pub fn clear(&mut self) {
-        // the dense array contains integers, so no destructors need to be called
+        // The dense array contains integers, so no destructors need to be called.
         self.dense.clear();
     }
 
@@ -156,6 +198,31 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
             iter: self.dense.iter(),
         }
     }
+}
+
+/// A macro to create and initialize sets in one go.
+///
+/// ```rust
+/// use thinset::{set, SparseSet};
+/// let mut set: SparseSet<u32> = set![4, 32, 16, 24, 63];
+/// assert!(set.contains(32));
+/// assert!(set.contains(63));
+/// set.insert(25);
+/// ```
+#[macro_export]
+macro_rules! set {
+    () => (
+        $crate::SparseSet::new()
+    );
+    ($($x:expr),+ $(,)?) => (
+        {
+            let mut s = $crate::SparseSet::new();
+            $(
+                s.insert($x);
+            )+
+            s
+        }
+    );
 }
 
 /// An iterator over the elements of a `SparseSet`.
@@ -217,7 +284,7 @@ mod tests {
 
     #[test]
     fn sparse_set_example() {
-        let set: SparseSet<usize> = SparseSet::new(50);
+        let set: SparseSet<usize> = SparseSet::with_capacity(50);
         assert!(set.is_empty());
         assert_eq!(set.len(), 0);
 
@@ -257,8 +324,50 @@ mod tests {
     }
 
     #[test]
+    fn sparse_set_macro_example() {
+        {
+            let mut set: SparseSet<u32> = set![1, 2, 3, 4, 5, 6, 6, 7, 7, 7];
+            for i in 1..7 {
+                assert!(set.contains(i));
+            }
+            set.insert(8);
+            set.insert(1000);
+            assert!(set.contains(8));
+            assert!(set.contains(1000));
+        }
+        {
+            let mut set: SparseSet<u32> = set![1, 2, 3, 54, 100];
+            assert!(set.contains(1));
+            assert!(set.contains(2));
+            assert!(set.contains(3));
+            assert!(set.contains(54));
+            assert!(set.contains(100));
+            set.remove(1);
+            set.remove(2);
+            set.remove(3);
+            set.remove(54);
+            set.remove(100);
+            assert!(set.is_empty());
+            assert!(!set.contains(1));
+            assert!(!set.contains(2));
+            assert!(!set.contains(3));
+            assert!(!set.contains(54));
+            assert!(!set.contains(100));
+        }
+        {
+            let set: SparseSet<u8> = set![
+                9, 10, 11, 100, // Note the trailing comma is allowed for visual uniformity.
+            ];
+            assert!(set.contains(100));
+            assert!(set.contains(9));
+            assert!(set.contains(10));
+            assert!(set.contains(11));
+        }
+    }
+
+    #[test]
     fn sparse_set_iter() {
-        let mut set: SparseSet<usize> = SparseSet::new(50);
+        let mut set: SparseSet<usize> = SparseSet::with_capacity(50);
         set.insert(3);
         set.insert(4);
         set.insert(5);
@@ -285,7 +394,7 @@ mod tests {
 
     #[test]
     fn sparse_set_into_iter() {
-        let mut set: SparseSet<usize> = SparseSet::new(50);
+        let mut set: SparseSet<usize> = SparseSet::with_capacity(50);
         set.insert(3);
         set.insert(4);
         set.insert(5);
@@ -297,17 +406,71 @@ mod tests {
         assert_eq!(iter.next(), None);
     }
 
-    #[should_panic]
     #[test]
     fn sparse_set_contains_value_out_of_bounds() {
-        let set: SparseSet<usize> = SparseSet::new(0);
+        let mut set: SparseSet<usize> = SparseSet::with_capacity(0);
         assert_eq!(set.len(), 0);
-        set.contains(0);
+        assert!(!set.contains(0));
+        assert!(!set.contains(100));
+        set.insert(4);
+        assert!(set.contains(4));
     }
 
-    #[should_panic]
     #[test]
-    fn sparse_set_constructor_value_out_of_bounds() {
-        let _set: SparseSet<u8> = SparseSet::new(u8::MAX as usize + 1);
+    fn sparse_set_fit_bounds() {
+        let mut s: SparseSet<u8> = SparseSet::with_capacity(u8::MAX as usize + 10);
+        for i in 0..u8::MAX {
+            s.insert(i);
+        }
+        for i in 0..u8::MAX {
+            assert!(s.contains(i));
+        }
+        assert_eq!(s.len(), u8::MAX as usize);
+        for i in 0..u8::MAX {
+            assert!(s.remove(i));
+        }
+        assert_eq!(s.len(), 0);
+    }
+
+    #[test]
+    fn sparse_set_grows_as_needed() {
+        let mut s: SparseSet<u32> = SparseSet::with_capacity(20);
+        assert!(s.insert(100));
+        assert!(s.contains(100));
+        assert!(s.insert(200));
+        assert!(s.contains(200));
+        assert!(s.remove(100));
+        assert!(s.remove(200));
+    }
+
+    #[test]
+    fn sparse_set_allows_random_insertions() {
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+
+        let n_iters = rng.gen_range(0x100..0x1000);
+        let mut check = Vec::with_capacity(n_iters);
+
+        let mut s: SparseSet<u32> = SparseSet::new();
+
+        // Check that inserting random values works.
+        for _ in 0..n_iters {
+            let x = rng.gen_range(0..10000);
+            s.insert(x);
+            check.push(x);
+        }
+
+        // Check that all of the inserted values are actually inserted.
+        for &x in &check {
+            assert!(s.contains(x));
+        }
+
+        // After removing every element at least once, the set should be empty.
+        // `check` can contain duplicates, so the same value might be removed
+        // more than once.
+        for &x in &check {
+            s.remove(x);
+        }
+        assert!(s.is_empty());
     }
 }
