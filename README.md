@@ -63,8 +63,7 @@ by Briggs and Torczon.
 ```rust
 use thinset::SparseSet;
 
-// Specify a maximum value for the set
-let mut s: SparseSet<usize> = SparseSet::new(100);
+let mut s: SparseSet<usize> = SparseSet::new();
 s.insert(0);
 s.insert(3);
 s.insert(7);
