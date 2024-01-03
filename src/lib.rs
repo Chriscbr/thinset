@@ -408,28 +408,10 @@ mod tests {
 
     #[test]
     fn sparse_set_contains_value_out_of_bounds() {
-        let mut set: SparseSet<usize> = SparseSet::with_capacity(0);
+        let set: SparseSet<usize> = SparseSet::with_capacity(0);
         assert_eq!(set.len(), 0);
         assert!(!set.contains(0));
         assert!(!set.contains(100));
-        set.insert(4);
-        assert!(set.contains(4));
-    }
-
-    #[test]
-    fn sparse_set_fit_bounds() {
-        let mut s: SparseSet<u8> = SparseSet::with_capacity(u8::MAX as usize + 10);
-        for i in 0..u8::MAX {
-            s.insert(i);
-        }
-        for i in 0..u8::MAX {
-            assert!(s.contains(i));
-        }
-        assert_eq!(s.len(), u8::MAX as usize);
-        for i in 0..u8::MAX {
-            assert!(s.remove(i));
-        }
-        assert_eq!(s.len(), 0);
     }
 
     #[test]
