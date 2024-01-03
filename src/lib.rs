@@ -40,31 +40,44 @@
 use num_traits::PrimInt;
 use num_traits::Unsigned;
 
-/// A sparse set of integer values.
-pub struct SparseSet<T: PrimInt + Unsigned> {
-    cap: usize,
-    sparse: Vec<usize>,
-    dense: Vec<T>,
+/// A pair stored in the map. Mostly used for readability advantages over (,).
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct Pair<K: PrimInt + Unsigned, V: Copy> {
+    key: K,
+    value: V,
 }
 
-impl<T: PrimInt + Unsigned> SparseSet<T> {
-    /// Creates an empty SparseSet.
+impl<K: PrimInt + Unsigned, V: Copy> Pair<K, V> {
+    fn new(key: K, value: V) -> Self {
+        Pair { key, value }
+    }
+}
+
+/// A sparse map of unsigned integer keys to integer values (or anything else that's copy).
+pub struct SparseMap<K: PrimInt + Unsigned, V: Copy> {
+    cap: usize,
+    sparse: Vec<usize>,
+    dense: Vec<Pair<K, V>>,
+}
+
+impl<K: PrimInt + Unsigned, V: Copy> SparseMap<K, V> {
+    /// Creates an empty SparseMap.
     pub fn new() -> Self {
         Self::with_capacity(0x1000)
     }
-
-    /// Creates an empty SparseSet that's allocated to store elements
-    /// with values up to `cap - 1` without allocating more memory.
+    /// Creates an empty SparseMap that's allocated to store elements
+    /// with keys up to `cap - 1`. If bigger keys get inserted, the
+    /// map grows automatically.
     ///
-    /// If `cap` is greater than the largest number of unique `T`s, then the capacity
-    /// of the set is decreased to only hold exactly the largest number of unique `T`s.
-    /// For example, if `T` is `u8` and the capacity `10000` is given, only `255`
+    /// If `cap` is greater than the largest number of unique `K`s, then the capacity
+    /// of the map is decreased to only hold exactly the largest number of unique `K`s.
+    /// For example, if `K` is `u8` and the capacity `10000` is given, only `255`
     /// elements will be allocated, because it's impossible for a set of `u8`s to hold
     /// any more elements than `255`.
     #[allow(clippy::uninit_vec)]
     pub fn with_capacity(cap: usize) -> Self {
-        // If the system's size allows it, `max_cap` is big enough to hold all unique `T`s.
-        let max_cap = T::max_value()
+        // If the system's size allows it, `max_cap` is big enough to hold all unique `K`s.
+        let max_cap = K::max_value()
             .to_usize()
             .unwrap_or(usize::MAX)
             .saturating_add(1);
@@ -73,7 +86,7 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
         // Allocate a vector size `cap` and initialize it with garbage values.
         // SAFETY: The call to `with_capacity(cap)` ensures that `set_len(cap)`
         // will succeed. `sparse` maybe be filled with garbage simply based on how
-        // the set works. An element is only considered part of the set if the entires
+        // the map works. An element is only considered part of the map if the entires
         // in `dense` and `sparse` are linked correctly. Thus, memory in `sparse` must
         // not be initialized.
         let mut sparse = Vec::with_capacity(cap);
@@ -88,46 +101,47 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
         }
     }
 
-    /// Returns true if the set contains a value.
+    /// Returns true if the map contains the key.
     ///
     /// # Panics
     ///
-    /// If `value` cannot be cast to `usize`.
-    pub fn contains(&self, value: T) -> bool {
-        let uvalue = value.to_usize().unwrap();
-        if uvalue >= self.cap {
+    /// If `key` cannot be cast to `usize`.
+    pub fn contains(&self, key: K) -> bool {
+        let ukey = key.to_usize().unwrap();
+        if ukey >= self.cap {
             return false;
         }
 
-        let r = self.sparse[uvalue];
+        let r = self.sparse[ukey];
 
-        r < self.dense.len() && self.dense[r] == value
+        r < self.dense.len() && self.dense[r].key == key
     }
 
-    /// Adds a value to the set.
+    /// Inserts `value` into the map behind `key`.
     ///
-    /// Returns whether the value was newly inserted. That is:
-    /// - If the set did not previously contain this value, true is returned.
-    /// - If the set already contained this value, false is returned, and the set is not modified.
+    /// Returns whether the key-value pair was newly inserted. This is:
+    /// - `true` if the key didn't exist before.
+    /// - `false` if the key did exist, and an old value was overwritten.
     ///
     /// # Panics
     ///
-    /// If `value` cannot be cast to `usize`.
-    pub fn insert(&mut self, value: T) -> bool {
-        let uvalue = value.to_usize().unwrap();
-        if uvalue >= self.cap {
-            self.grow_to_max(uvalue);
+    /// If `key` cannot be cast to `usize`.
+    pub fn insert(&mut self, key: K, value: V) -> bool {
+        let ukey = key.to_usize().unwrap();
+        if ukey >= self.cap {
+            self.grow_to_max(ukey);
         }
 
-        let r = self.sparse[uvalue];
+        let r = self.sparse[ukey];
 
-        // If the value is already in the set, return early.
-        if r < self.dense.len() && self.dense[r] == value {
+        // Overwrite the value if they key is already present.
+        if r < self.dense.len() && self.dense[r].key == key {
+            self.dense[r].value = value;
             return false;
         }
 
-        self.sparse[uvalue] = self.dense.len();
-        self.dense.push(value);
+        self.sparse[ukey] = self.dense.len();
+        self.dense.push(Pair::new(key, value));
 
         true
     }
@@ -135,7 +149,7 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
     fn grow_to_max(&mut self, new_max: usize) {
         let cap = new_max
             .checked_add(1)
-            .expect("maximum value is greater than the maximum allowed by the system's usize");
+            .expect("maximum key is greater than the maximum allowed by the system's usize");
         // SAFETY: The call to `reserve_exact(cap - self.sparse.len())` ensures that the capacity is
         // greater or equal to `cap` so that `set_len(cap)` will succeed. See `Self::with_capacity`
         // for more info on uninitialized memory in `sparse`.
@@ -147,31 +161,83 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
         self.cap = cap;
     }
 
-    /// Removes a value from the set. Returns whether the value was present in the set.
+    /// Get the value behind the given `key`. Returns `None` if the key doesn't exist.
     ///
     /// # Panics
     ///
-    /// If `value` cannot be cast to `usize`.
-    pub fn remove(&mut self, value: T) -> bool {
-        let uvalue = value.to_usize().unwrap();
-        if uvalue >= self.cap {
+    /// If `key` cannot be cast to `usize`.
+    pub fn get(&self, key: K) -> Option<V> {
+        let ukey = key.to_usize().unwrap();
+        if ukey >= self.cap {
+            return None;
+        }
+
+        let r = self.sparse[ukey];
+        if r < self.dense.len() && self.dense[r].key == key {
+            return Some(self.dense[r].value);
+        }
+
+        None
+    }
+
+    /// Updates the value behind `key` with `f` or inserts
+    /// `value` if `key` doesn't exist.
+    ///
+    /// Returns whether `key` existed and `f` was used to update
+    /// the existing value. That is
+    /// - `true` if `f` was applied and used to update a value.
+    /// - `false` if `default` was inserted an `f` was never run.
+    ///
+    /// # Panics
+    ///
+    /// If `key` cannot be cast to `usize`.
+    pub fn update<F>(&mut self, key: K, default: V, f: F) -> bool
+    where
+        F: Fn(V) -> V,
+    {
+        let ukey = key.to_usize().unwrap();
+        if ukey >= self.cap {
+            self.insert(key, default);
             return false;
         }
 
-        let r = self.sparse[uvalue];
+        let r = self.sparse[ukey];
+        if r < self.dense.len() && self.dense[r].key == key {
+            self.dense[r].value = f(self.dense[r].value);
+            true
+        } else {
+            self.insert(key, default);
+            false
+        }
+    }
 
-        // If the value isn't in the set, return early.
-        if r >= self.dense.len() || self.dense[r] != value {
+    /// Removes a key-value pair from the map. Returns whether the pair was present in the set.
+    ///
+    /// # Panics
+    ///
+    /// If `key` cannot be cast to `usize`.
+    pub fn remove(&mut self, key: K) -> bool {
+        let ukey = key.to_usize().unwrap();
+        if ukey >= self.cap {
             return false;
         }
 
-        // Remove the value by giving its slot to the last value in `dense`.
-        let last_value = self.dense[self.dense.len() - 1];
-        self.dense[r] = last_value;
-        self.sparse[last_value.to_usize().unwrap()] = r; // Update `last_value`'s link into `sparse`.
-        self.dense.pop(); // Delete the now expendable copy of `last_value` from the end of `dense`.
+        let r = self.sparse[ukey];
 
-        true
+        // Remove only if the pair is part of the map.
+        if r < self.dense.len() && self.dense[r].key == key {
+            // Remove the pair by giving its slot to the last pair in `dense`.
+            let last_pair = self.dense[self.dense.len() - 1];
+            self.sparse[last_pair.key.to_usize().unwrap()] = r; // Update `last_pair`'s link into `sparse`.
+            self.dense[r] = last_pair;
+
+            // Delete the now expendable copy of `last_pair`.
+            self.dense.pop();
+
+            return true;
+        }
+
+        false
     }
 
     /// Returns true if the set contains no elements.
@@ -179,24 +245,209 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
         self.dense.is_empty()
     }
 
-    /// Returns the number of elements in the set.
+    /// Returns the number of elements in the map.
     pub fn len(&self) -> usize {
         self.dense.len()
+    }
+
+    /// Removes all elements from the map.
+    ///
+    /// This operation is O(1). It does not deallocate memory.
+    pub fn clear(&mut self) {
+        // The dense array contains pairs of integers, so no destructors need to be called.
+        self.dense.clear();
+    }
+
+    /// An iterator visiting all elements in arbitrary order.
+    pub fn iter(&self) -> SparseMapIter<'_, K, V> {
+        SparseMapIter {
+            iter: self.dense.iter(),
+        }
+    }
+}
+
+/// An iterator over the key-value pairs of a [`SparseMap`].
+///
+/// This struct is created by the [`iter`] method on [`SparseMap`].
+///
+/// [`iter`]: SparseMap::iter
+pub struct SparseMapIter<'a, K: PrimInt + Unsigned, V: Copy> {
+    iter: std::slice::Iter<'a, Pair<K, V>>,
+}
+
+impl<'a, K: PrimInt + Unsigned, V: Copy> Iterator for SparseMapIter<'a, K, V> {
+    type Item = &'a Pair<K, V>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
+// `IntoIterator` implementation for [`SparseMap`].
+impl<K: Unsigned + PrimInt, V: Copy> IntoIterator for SparseMap<K, V> {
+    type Item = Pair<K, V>;
+    type IntoIter = SparseMapIntoIter<K, V>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        SparseMapIntoIter {
+            iter: self.dense.into_iter(),
+        }
+    }
+}
+
+/// An owned iterator over the key-value pairs of a [`SparseMap`].
+///
+/// This struct is created by the [`into_iter`] method on [`SparseMap`].
+///
+/// [`into_iter`]: SparseMap::iter
+pub struct SparseMapIntoIter<K: PrimInt + Unsigned, V: Copy> {
+    iter: std::vec::IntoIter<Pair<K, V>>,
+}
+
+impl<K: PrimInt + Unsigned, V: Copy> Iterator for SparseMapIntoIter<K, V> {
+    type Item = Pair<K, V>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
+pub struct SparseSet<T: Unsigned + PrimInt> {
+    inner: SparseMap<T, ()>,
+}
+
+impl<T: Unsigned + PrimInt> SparseSet<T> {
+    /// Creates an empty SparseSet.
+    pub fn new() -> Self {
+        Self {
+            inner: SparseMap::new(),
+        }
+    }
+
+    /// Creates an empty SparseSet that's allocated to store elements
+    /// with values up to `cap - 1`.
+    ///
+    /// See [`SparseMap`] for more info.
+    pub fn with_capacity(cap: usize) -> Self {
+        Self {
+            inner: SparseMap::with_capacity(cap),
+        }
+    }
+
+    /// Returns true if the set contains a value.
+    ///
+    /// # Panics
+    ///
+    /// If `value` cannot be cast to `usize`.
+    pub fn contains(&self, value: T) -> bool {
+        self.inner.contains(value)
+    }
+
+    /// Adds a value to the set.
+    ///
+    /// Returns whether the value was newly inserted. That is:
+    /// - `true` if the value didn't exist before.
+    /// - `false` if the value did already exist.
+    ///
+    /// # Panics
+    ///
+    /// If `value` cannot be cast to `usize`.
+    pub fn insert(&mut self, value: T) -> bool {
+        self.inner.insert(value, ())
+    }
+
+    /// Removes a value from the set. Returns whether the value was present in the set.
+    ///
+    /// # Panics
+    ///
+    /// If `value` cannot be cast to `usize`.
+    pub fn remove(&mut self, value: T) -> bool {
+        self.inner.remove(value)
+    }
+
+    /// Returns true if the set contains no elements.
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+
+    /// Returns the number of elements in the set.
+    pub fn len(&self) -> usize {
+        self.inner.len()
     }
 
     /// Removes all elements from the set.
     ///
     /// This operation is O(1). It does not deallocate memory.
     pub fn clear(&mut self) {
-        // The dense array contains integers, so no destructors need to be called.
-        self.dense.clear();
+        self.inner.clear();
     }
 
     /// An iterator visiting all elements in arbitrary order.
-    pub fn iter(&self) -> SparseSetIter<'_, T> {
+    pub fn iter(&self) -> SparseSetIter<T> {
         SparseSetIter {
-            iter: self.dense.iter(),
+            iter: self.inner.iter(),
         }
+    }
+}
+
+/// An iterator over the elements of a `SparseSet`.
+///
+/// This struct is created by the [`iter`] method on [`SparseSet`].
+///
+/// [`iter`]: SparseSet::iter
+pub struct SparseSetIter<'a, T: PrimInt + Unsigned> {
+    iter: SparseMapIter<'a, T, ()>,
+}
+
+impl<'a, T: PrimInt + Unsigned> Iterator for SparseSetIter<'a, T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|Pair { key, value: _ }| *key)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
+impl<T: Unsigned + PrimInt> IntoIterator for SparseSet<T> {
+    type Item = T;
+    type IntoIter = SparseSetIntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        SparseSetIntoIter {
+            iter: self.inner.into_iter(),
+        }
+    }
+}
+
+/// An owned iterator over the elements of a [`SparseSet`].
+///
+/// This struct is created by the [`into_iter`] method on [`SparseSet`].
+///
+/// [`into_iter`]: SparseSet::into_iter
+pub struct SparseSetIntoIter<T: PrimInt + Unsigned> {
+    iter: SparseMapIntoIter<T, ()>,
+}
+
+impl<T: PrimInt + Unsigned> Iterator for SparseSetIntoIter<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|Pair { key, value: _ }| key)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
     }
 }
 
@@ -225,62 +476,122 @@ macro_rules! set {
     );
 }
 
-/// An iterator over the elements of a `SparseSet`.
-///
-/// This struct is created by the [`iter`] method on [`SparseSet`].
-///
-/// [`iter`]: SparseSet::iter
-pub struct SparseSetIter<'a, T: PrimInt + Unsigned> {
-    iter: std::slice::Iter<'a, T>,
-}
-
-impl<'a, T: PrimInt + Unsigned> Iterator for SparseSetIter<'a, T> {
-    type Item = T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().copied()
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.iter.size_hint()
-    }
-}
-
-impl<T: PrimInt + Unsigned> IntoIterator for SparseSet<T> {
-    type Item = T;
-    type IntoIter = SparseSetIntoIter<T>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        SparseSetIntoIter {
-            iter: self.dense.into_iter(),
-        }
-    }
-}
-
-/// An iterator over the elements of a `SparseSet`.
-///
-/// This struct is created by the [`into_iter`] method on [`SparseSet`].
-///
-/// [`into_iter`]: SparseSet::into_iter
-pub struct SparseSetIntoIter<T: PrimInt + Unsigned> {
-    iter: std::vec::IntoIter<T>,
-}
-
-impl<T: PrimInt + Unsigned> Iterator for SparseSetIntoIter<T> {
-    type Item = T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.iter.size_hint()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sparse_map_example() {
+        let map: SparseMap<usize, usize> = SparseMap::with_capacity(50);
+        assert!(map.is_empty());
+        assert_eq!(map.len(), 0);
+
+        assert!(!map.contains(0));
+        assert!(!map.contains(42));
+        assert!(!map.contains(5));
+
+        let mut map = map;
+        map.insert(0, 1);
+        map.insert(41, 2);
+
+        assert!(!map.is_empty());
+        assert_eq!(map.len(), 2);
+        assert!(map.contains(0));
+        assert!(map.contains(41));
+        assert!(!map.contains(14));
+        assert_eq!(map.get(0), Some(1));
+        assert_eq!(map.get(41), Some(2));
+
+        map.clear();
+
+        assert!(map.is_empty());
+        assert_eq!(map.len(), 0);
+    }
+
+    #[test]
+    fn sparse_map_iter() {
+        let mut map: SparseMap<u32, i32> = SparseMap::new();
+        map.insert(4, 5);
+        map.insert(6, 7);
+        map.insert(9, 10);
+
+        let mut iter = map.iter();
+        assert_eq!(iter.next(), Some(&Pair::new(4, 5)));
+        assert_eq!(iter.next(), Some(&Pair::new(6, 7)));
+        assert_eq!(iter.next(), Some(&Pair::new(9, 10)));
+        assert_eq!(iter.next(), None);
+
+        map.remove(9);
+        let mut iter = map.iter();
+        assert_eq!(iter.next(), Some(&Pair::new(4, 5)));
+        assert_eq!(iter.next(), Some(&Pair::new(6, 7)));
+        assert_eq!(iter.next(), None);
+
+        map.remove(6);
+        map.remove(4);
+        let mut iter = map.iter();
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn sparse_map_into_iter() {
+        let mut map: SparseMap<u64, i64> = SparseMap::with_capacity(100);
+        map.insert(5, 1000);
+        map.insert(6, 572);
+        map.insert(7, 8);
+
+        let mut iter = map.into_iter();
+        // Note there are no references here.
+        assert_eq!(iter.next(), Some(Pair::new(5, 1000)));
+        assert_eq!(iter.next(), Some(Pair::new(6, 572)));
+        assert_eq!(iter.next(), Some(Pair::new(7, 8)));
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn sparse_map_contains_key_out_of_bounds() {
+        let map: SparseMap<usize, i32> = SparseMap::new();
+        assert_eq!(map.len(), 0);
+        assert!(!map.contains(4000));
+        assert!(!map.contains(0));
+        assert!(!map.contains(10));
+    }
+
+    #[test]
+    fn sparse_map_grows_as_needed() {
+        let mut m: SparseMap<u32, u32> = SparseMap::with_capacity(20);
+        assert!(m.insert(390, 0));
+        assert!(m.contains(390));
+        assert!(m.insert(200, 10));
+        assert!(m.contains(200));
+        assert!(m.remove(390));
+        assert!(m.remove(200));
+    }
+
+    #[test]
+    fn sparse_map_insert_random_values() {
+        let k = gen_random_vec();
+        let v = gen_random_vec();
+        let mut m: SparseMap<u32, u32> = SparseMap::new();
+
+        // Check that inserting random values works.
+        for (&k, &v) in k.iter().zip(v.iter()) {
+            m.insert(k, v);
+        }
+
+        // Check that all of the inserted values are actually inserted.
+        for &k in k.iter() {
+            assert!(m.contains(k));
+        }
+
+        // After removing every element at least once, the map should be empty.
+        // `k` can contain duplicates, so the same value might be removed
+        // more than once.
+        for &k in &k {
+            m.remove(k);
+        }
+        assert!(m.is_empty());
+    }
 
     #[test]
     fn sparse_set_example() {
@@ -426,33 +737,40 @@ mod tests {
     }
 
     #[test]
-    fn sparse_set_allows_random_insertions() {
-        use rand::Rng;
-        let mut rng = rand::thread_rng();
-
-        let n_iters = rng.gen_range(0x100..0x1000);
-        let mut check = Vec::with_capacity(n_iters);
-
+    fn sparse_set_insert_random_values() {
+        let r = gen_random_vec();
         let mut s: SparseSet<u32> = SparseSet::new();
 
         // Check that inserting random values works.
-        for _ in 0..n_iters {
-            let x = rng.gen_range(0..10000);
+        for &x in &r {
             s.insert(x);
-            check.push(x);
         }
 
         // Check that all of the inserted values are actually inserted.
-        for &x in &check {
+        for &x in &r {
             assert!(s.contains(x));
         }
 
         // After removing every element at least once, the set should be empty.
-        // `check` can contain duplicates, so the same value might be removed
+        // `r` can contain duplicates, so the same value might be removed
         // more than once.
-        for &x in &check {
+        for &x in &r {
             s.remove(x);
         }
         assert!(s.is_empty());
+    }
+
+    fn gen_random_vec() -> Vec<u32> {
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+
+        let size = rng.gen_range(0x100..0x1000);
+        let mut vec = Vec::with_capacity(size);
+
+        for _ in 0..size {
+            vec.push(rng.gen_range(0..10000));
+        }
+
+        vec
     }
 }
