@@ -625,6 +625,13 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
+    fn sparse_map_key_must_fit_usize() {
+        let map: SparseMap<u128, i32> = SparseMap::new();
+        map.contains(usize::MAX as u128 + 1);
+    }
+
+    #[test]
     fn sparse_set_example() {
         let set: SparseSet<usize> = SparseSet::with_capacity(50);
         assert!(set.is_empty());
