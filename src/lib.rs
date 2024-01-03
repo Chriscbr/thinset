@@ -43,8 +43,8 @@ use num_traits::Unsigned;
 /// A pair stored in the map. Mostly used for readability advantages over (,).
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Pair<K: PrimInt + Unsigned, V: Copy> {
-    key: K,
-    value: V,
+    pub key: K,
+    pub value: V,
 }
 
 impl<K: PrimInt + Unsigned, V: Copy> Pair<K, V> {
