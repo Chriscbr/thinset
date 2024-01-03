@@ -503,6 +503,13 @@ mod tests {
         assert!(!map.contains(14));
         assert_eq!(map.get(0), Some(1));
         assert_eq!(map.get(41), Some(2));
+        assert_eq!(map.get(14), None);
+
+        map.update(41, 0, |n| n * n);
+        assert_eq!(map.get(41), Some(4));
+        // TODO: Would it be better if f were always applied?
+        map.update(14, 10, |n| n);
+        assert_eq!(map.get(14), Some(10));
 
         map.clear();
 
