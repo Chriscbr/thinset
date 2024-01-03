@@ -480,6 +480,8 @@ macro_rules! set {
 mod tests {
     use super::*;
 
+    use rand::Rng;
+
     #[test]
     fn sparse_map_example() {
         let map: SparseMap<usize, usize> = SparseMap::with_capacity(50);
@@ -570,8 +572,11 @@ mod tests {
 
     #[test]
     fn sparse_map_insert_random_values() {
-        let k = gen_random_vec();
-        let v = gen_random_vec();
+        let mut rng = rand::thread_rng();
+        let size = rng.gen_range(0x100..0x1000);
+
+        let k = gen_random_vec(size);
+        let v = gen_random_vec(size);
         let mut m: SparseMap<u32, u32> = SparseMap::new();
 
         // Check that inserting random values works.
@@ -738,7 +743,8 @@ mod tests {
 
     #[test]
     fn sparse_set_insert_random_values() {
-        let r = gen_random_vec();
+        let mut rng = rand::thread_rng();
+        let r = gen_random_vec(rng.gen_range(0x100..0x1000));
         let mut s: SparseSet<u32> = SparseSet::new();
 
         // Check that inserting random values works.
@@ -760,11 +766,8 @@ mod tests {
         assert!(s.is_empty());
     }
 
-    fn gen_random_vec() -> Vec<u32> {
-        use rand::Rng;
+    fn gen_random_vec(size: usize) -> Vec<u32> {
         let mut rng = rand::thread_rng();
-
-        let size = rng.gen_range(0x100..0x1000);
         let mut vec = Vec::with_capacity(size);
 
         for _ in 0..size {
