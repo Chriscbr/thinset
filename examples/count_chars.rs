@@ -1,10 +1,12 @@
-use thinset::{SparseMap, Pair};
 use std::env;
+use thinset::{Pair, SparseMap};
 
 fn main() {
     let mut args = env::args();
     args.next();
-    let s = args.next().expect("Pass a string to count the number of characters of");
+    let s = args
+        .next()
+        .expect("Pass a string to count the number of characters of");
 
     let mut map = SparseMap::new();
     for ch in s.chars() {
