@@ -153,7 +153,7 @@ impl<K: PrimInt + Unsigned, V: Copy> SparseMap<K, V> {
 
         let r = self.sparse[ukey];
 
-        // Overwrite the value if they key is already present.
+        // Overwrite the value if the key is already present.
         if r < self.dense.len() && self.dense[r].key == key {
             self.dense[r].value = value;
             return false;
