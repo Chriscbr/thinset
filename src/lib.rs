@@ -210,7 +210,7 @@ impl<K: PrimInt + Unsigned, V: Copy> SparseMap<K, V> {
     /// # Panics
     ///
     /// If `key` cannot be cast to `usize`.
-    pub fn update<F>(&mut self, key: K, default: V, f: F) -> bool
+    pub fn update<F>(&mut self, key: K, f: F, default: V) -> bool
     where
         F: Fn(V) -> V,
     {
@@ -524,10 +524,9 @@ mod tests {
         assert_eq!(map.get(41), Some(2));
         assert_eq!(map.get(14), None);
 
-        map.update(41, 0, |n| n * n);
+        map.update(41, |n| n * n, 0);
         assert_eq!(map.get(41), Some(4));
-        // TODO: Would it be better if f were always applied?
-        map.update(14, 10, |n| n);
+        map.update(14, |n| n, 10);
         assert_eq!(map.get(14), Some(10));
 
         map.clear();

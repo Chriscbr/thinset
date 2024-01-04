@@ -10,7 +10,7 @@ fn main() {
 
     let mut map = SparseMap::new();
     for ch in s.chars() {
-        map.update(ch as u8, 1, |n| n + 1);
+        map.update(ch as u8, |n| n + 1, 1);
     }
 
     println!("The following characters occur in the string '{}':", s);
