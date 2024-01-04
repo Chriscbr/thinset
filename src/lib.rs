@@ -631,6 +631,24 @@ mod tests {
     }
 
     #[test]
+    fn sparse_set_unit_tuple_trick_works() {
+        use std::mem::size_of;
+
+        // `SparseSet` is a `SparseMap` of `Pair<K, ()>`s. On every insertion into
+        // the map, such a pair is appended to the end of `dense`. This test asserts
+        // that using the unit tuple trick to implement a set on top of a map uses
+        // the same amount of memory as a direct implementation of the set would. The
+        // same trick is employed by `std::collections::HashSet`.
+
+        assert_eq!(size_of::<usize>(), size_of::<Pair<usize, ()>>());
+        assert_eq!(size_of::<u128>(), size_of::<Pair<u128, ()>>());
+        assert_eq!(size_of::<u64>(), size_of::<Pair<u64, ()>>());
+        assert_eq!(size_of::<u32>(), size_of::<Pair<u32, ()>>());
+        assert_eq!(size_of::<u16>(), size_of::<Pair<u16, ()>>());
+        assert_eq!(size_of::<u8>(), size_of::<Pair<u8, ()>>());
+    }
+
+    #[test]
     fn sparse_set_example() {
         let set: SparseSet<usize> = SparseSet::with_capacity(50);
         assert!(set.is_empty());
