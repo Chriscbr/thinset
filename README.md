@@ -41,7 +41,7 @@ thinset = "0.1"
 
 <!-- cargo-rdme start -->
 
-An implementation of a set using a pair of sparse and dense arrays as backing stores.
+An implementation of a set and a map using a pair of sparse and dense arrays as backing stores.
 
 This type of set is useful when you need to efficiently track set membership for integers
 from a large universe, but the values are relatively spread apart.
@@ -55,6 +55,9 @@ proportional to the cardinality of the set (how many elements you have) instead 
 
 The main downside is that the set requires more memory than other set implementations.
 
+The map behaves identically to the set with the exception that it tracks data alongside
+the values that are stored in the set. Under the hood, `SparseSet` is a `SparseMap` of keys to `()`.
+
 The implementation is based on the paper "An efficient representation for sparse sets" (1993)
 by Briggs and Torczon.
 
@@ -63,8 +66,7 @@ by Briggs and Torczon.
 ```rust
 use thinset::SparseSet;
 
-// Specify a maximum value for the set
-let mut s: SparseSet<usize> = SparseSet::new(100);
+let mut s: SparseSet<usize> = SparseSet::new();
 s.insert(0);
 s.insert(3);
 s.insert(7);
@@ -78,6 +80,22 @@ if !s.contains(7) {
 // Print 0, 1, 3 in some order
 for x in s.iter() {
     println!("{}", x);
+}
+```
+
+```rust
+use thinset::{Pair, SparseMap};
+
+let mut m: SparseMap<u32, u32> = SparseMap::new();
+
+m.insert(13, 2);
+m.insert(8, 16);
+
+assert_eq!(m.get(13), Some(2));
+assert_eq!(m.get(6), None);
+
+for Pair {key, value} in m.iter() {
+    println!("{key}:{value}");
 }
 ```
 
