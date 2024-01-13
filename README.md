@@ -91,7 +91,7 @@ let mut m: SparseMap<u32, u32> = SparseMap::new();
 m.insert(13, 2);
 m.insert(8, 16);
 
-assert_eq!(m.get(13), Some(2));
+assert_eq!(m.get(13), Some(&2));
 assert_eq!(m.get(6), None);
 
 for Pair {key, value} in m.iter() {

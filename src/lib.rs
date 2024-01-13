@@ -48,7 +48,7 @@
 //! m.insert(13, 2);
 //! m.insert(8, 16);
 //!
-//! assert_eq!(m.get(13), Some(2));
+//! assert_eq!(m.get(13), Some(&2));
 //! assert_eq!(m.get(6), None);
 //!
 //! for Pair {key, value} in m.iter() {
@@ -185,7 +185,7 @@ impl<K: PrimInt + Unsigned, V: Copy> SparseMap<K, V> {
     /// # Panics
     ///
     /// If `key` cannot be cast to `usize`.
-    pub fn get(&self, key: K) -> Option<V> {
+    pub fn get(&self, key: K) -> Option<&V> {
         let ukey = key.to_usize().unwrap();
         if ukey >= self.cap {
             return None;
@@ -193,7 +193,27 @@ impl<K: PrimInt + Unsigned, V: Copy> SparseMap<K, V> {
 
         let r = self.sparse[ukey];
         if r < self.dense.len() && self.dense[r].key == key {
-            return Some(self.dense[r].value);
+            return Some(&self.dense[r].value);
+        }
+
+        None
+    }
+
+    /// Get mutable access to the value behind the given `key`.
+    /// Returns `None` if the key doesn't exist.
+    ///
+    /// # Panics
+    ///
+    /// If `key` cannot be cast to `usize`.
+    pub fn get_mut(&mut self, key: K) -> Option<&mut V> {
+        let ukey = key.to_usize().unwrap();
+        if ukey >= self.cap {
+            return None;
+        }
+
+        let r = self.sparse[ukey];
+        if r < self.dense.len() && self.dense[r].key == key {
+            return Some(&mut self.dense[r].value);
         }
 
         None
@@ -342,6 +362,20 @@ impl<K: PrimInt + Unsigned, V: Copy> Iterator for SparseMapIntoIter<K, V> {
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.iter.size_hint()
+    }
+}
+
+impl<K: Unsigned + PrimInt, V: Copy> std::ops::Index<K> for SparseMap<K, V> {
+    type Output = V;
+
+    fn index(&self, key: K) -> &Self::Output {
+        self.get(key).unwrap()
+    }
+}
+
+impl<K: Unsigned + PrimInt, V: Copy> std::ops::IndexMut<K> for SparseMap<K, V> {
+    fn index_mut(&mut self, key: K) -> &mut Self::Output {
+        self.get_mut(key).unwrap()
     }
 }
 
@@ -532,14 +566,14 @@ mod tests {
         assert!(map.contains(0));
         assert!(map.contains(41));
         assert!(!map.contains(14));
-        assert_eq!(map.get(0), Some(1));
-        assert_eq!(map.get(41), Some(2));
+        assert_eq!(map.get(0), Some(&1));
+        assert_eq!(map.get(41), Some(&2));
         assert_eq!(map.get(14), None);
 
         map.update(41, |n| n * n, 0);
-        assert_eq!(map.get(41), Some(4));
+        assert_eq!(map.get(41), Some(&4));
         map.update(14, |n| n, 10);
-        assert_eq!(map.get(14), Some(10));
+        assert_eq!(map.get(14), Some(&10));
 
         map.clear();
 
@@ -647,6 +681,45 @@ mod tests {
     fn sparse_map_key_must_fit_usize() {
         let map: SparseMap<u128, i32> = SparseMap::new();
         map.contains(usize::MAX as u128 + 1);
+    }
+
+    #[test]
+    fn sparse_map_can_be_indexed() {
+        let mut map: SparseMap<u32, i32> = SparseMap::new();
+        map.insert(10, 100);
+        map.insert(5, 50);
+        assert_eq!(map[10], 100);
+        assert_eq!(map[5], 50);
+    }
+
+    #[test]
+    #[should_panic]
+    fn sprase_map_index_out_of_range() {
+        let mut map: SparseMap<u32, i32> = SparseMap::new();
+        map.insert(4, 5);
+        let _ = map[5];
+    }
+
+    #[test]
+    fn sparse_map_can_be_indexed_mutably() {
+        let mut map: SparseMap<u32, i32> = SparseMap::new();
+        map.insert(6, 10);
+        assert_eq!(map.get(6), Some(&10));
+        map[6] = 5;
+        assert_eq!(map.get(6), Some(&5));
+        let x = &mut map[6];
+        *x = 7;
+        *x += 1;
+        assert_eq!(map.get(6), Some(&8));
+    }
+
+    #[test]
+    #[should_panic]
+    fn sparse_map_mutable_index_out_of_range() {
+        let mut map: SparseMap<u32, i32> = SparseMap::new();
+        map.insert(51, 0);
+        let x: &mut i32 = &mut map[53];
+        *x = 60;
     }
 
     #[test]
