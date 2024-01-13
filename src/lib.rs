@@ -306,6 +306,12 @@ impl<'a, K: PrimInt + Unsigned, V: Copy> Iterator for SparseMapIter<'a, K, V> {
     }
 }
 
+impl<K: PrimInt + Unsigned, V: Copy> std::default::Default for SparseMap<K, V> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 // `IntoIterator` implementation for [`SparseMap`].
 impl<K: Unsigned + PrimInt, V: Copy> IntoIterator for SparseMap<K, V> {
     type Item = Pair<K, V>;
@@ -414,6 +420,12 @@ impl<T: Unsigned + PrimInt> SparseSet<T> {
         SparseSetIter {
             iter: self.inner.iter(),
         }
+    }
+}
+
+impl<T: Unsigned + PrimInt> Default for SparseSet<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -533,6 +545,13 @@ mod tests {
 
         assert!(map.is_empty());
         assert_eq!(map.len(), 0);
+    }
+
+    #[test]
+    fn sparse_map_has_default_impl() {
+        let mut set: SparseMap<u32, i32> = Default::default();
+        set.insert(4, 2);
+        assert!(set.contains(4));
     }
 
     #[test]
@@ -687,6 +706,13 @@ mod tests {
 
         assert!(set.is_empty());
         assert_eq!(set.len(), 0);
+    }
+
+    #[test]
+    fn sparse_set_has_default_impl() {
+        let mut set: SparseSet<u32> = Default::default();
+        set.insert(4);
+        assert!(set.contains(4));
     }
 
     #[test]
