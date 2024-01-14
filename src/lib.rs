@@ -805,6 +805,25 @@ mod tests {
     }
 
     #[test]
+    fn sparse_map_partial_eq() {
+        let mut map1: SparseMap<u32, f64> = SparseMap::new();
+        let mut map2: SparseMap<u32, f64> = SparseMap::new();
+        assert_eq!(map1, map2);
+
+        map1.insert(1, 2.0);
+        assert_ne!(map1, map2);
+
+        map2.insert(1, 2.0);
+        assert_eq!(map1, map2);
+
+        map1.insert(3, f64::NAN);
+        assert_ne!(map1, map2);
+
+        map2.insert(3, f64::NAN);
+        assert_ne!(map1, map2);
+    }
+
+    #[test]
     fn sparse_set_unit_tuple_trick_works() {
         use std::mem::size_of;
 
