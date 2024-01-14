@@ -56,6 +56,9 @@
 //! }
 //! ```
 
+use core::fmt;
+use core::fmt::Debug;
+
 use num_traits::PrimInt;
 use num_traits::Unsigned;
 
@@ -305,6 +308,39 @@ impl<K: PrimInt + Unsigned, V: Copy> SparseMap<K, V> {
     }
 }
 
+impl<K: PrimInt + Unsigned + Debug, V: Copy + Debug> Debug for SparseMap<K, V> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut d = f.debug_map();
+        for pair in &self.dense {
+            d.entry(&pair.key, &pair.value);
+        }
+        d.finish()
+    }
+}
+
+impl<K: PrimInt + Unsigned, V: Copy + PartialEq> PartialEq for SparseMap<K, V> {
+    fn eq(&self, other: &Self) -> bool {
+        if self.len() != other.len() {
+            return false;
+        }
+
+        for pair in &self.dense {
+            match other.get(pair.key) {
+                Some(value) => {
+                    if value != &pair.value {
+                        return false;
+                    }
+                }
+                None => return false,
+            }
+        }
+
+        true
+    }
+}
+
+impl<K: PrimInt + Unsigned, V: Copy + Eq> Eq for SparseMap<K, V> {}
+
 /// An iterator over the key-value pairs of a [`SparseMap`].
 ///
 /// This struct is created by the [`iter`] method on [`SparseMap`].
@@ -326,14 +362,14 @@ impl<'a, K: PrimInt + Unsigned, V: Copy> Iterator for SparseMapIter<'a, K, V> {
     }
 }
 
-impl<K: PrimInt + Unsigned, V: Copy> std::default::Default for SparseMap<K, V> {
+impl<K: PrimInt + Unsigned, V: Copy> Default for SparseMap<K, V> {
     fn default() -> Self {
         Self::new()
     }
 }
 
 // `IntoIterator` implementation for [`SparseMap`].
-impl<K: Unsigned + PrimInt, V: Copy> IntoIterator for SparseMap<K, V> {
+impl<K: PrimInt + Unsigned, V: Copy> IntoIterator for SparseMap<K, V> {
     type Item = Pair<K, V>;
     type IntoIter = SparseMapIntoIter<K, V>;
 
@@ -365,7 +401,7 @@ impl<K: PrimInt + Unsigned, V: Copy> Iterator for SparseMapIntoIter<K, V> {
     }
 }
 
-impl<K: Unsigned + PrimInt, V: Copy> std::ops::Index<K> for SparseMap<K, V> {
+impl<K: PrimInt + Unsigned, V: Copy> std::ops::Index<K> for SparseMap<K, V> {
     type Output = V;
 
     fn index(&self, key: K) -> &Self::Output {
@@ -373,17 +409,17 @@ impl<K: Unsigned + PrimInt, V: Copy> std::ops::Index<K> for SparseMap<K, V> {
     }
 }
 
-impl<K: Unsigned + PrimInt, V: Copy> std::ops::IndexMut<K> for SparseMap<K, V> {
+impl<K: PrimInt + Unsigned, V: Copy> std::ops::IndexMut<K> for SparseMap<K, V> {
     fn index_mut(&mut self, key: K) -> &mut Self::Output {
         self.get_mut(key).unwrap()
     }
 }
 
-pub struct SparseSet<T: Unsigned + PrimInt> {
+pub struct SparseSet<T: PrimInt + Unsigned> {
     inner: SparseMap<T, ()>,
 }
 
-impl<T: Unsigned + PrimInt> SparseSet<T> {
+impl<T: PrimInt + Unsigned> SparseSet<T> {
     /// Creates an empty SparseSet.
     pub fn new() -> Self {
         Self {
@@ -457,11 +493,29 @@ impl<T: Unsigned + PrimInt> SparseSet<T> {
     }
 }
 
-impl<T: Unsigned + PrimInt> Default for SparseSet<T> {
+impl<T: PrimInt + Unsigned> Default for SparseSet<T> {
     fn default() -> Self {
         Self::new()
     }
 }
+
+impl<T: PrimInt + Unsigned + Debug> Debug for SparseSet<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut d = f.debug_set();
+        for pair in &self.inner.dense {
+            d.entry(&pair.key);
+        }
+        d.finish()
+    }
+}
+
+impl<T: PrimInt + Unsigned> PartialEq for SparseSet<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner == other.inner
+    }
+}
+
+impl<T: PrimInt + Unsigned> Eq for SparseSet<T> {}
 
 /// An iterator over the elements of a `SparseSet`.
 ///
@@ -484,7 +538,7 @@ impl<'a, T: PrimInt + Unsigned> Iterator for SparseSetIter<'a, T> {
     }
 }
 
-impl<T: Unsigned + PrimInt> IntoIterator for SparseSet<T> {
+impl<T: PrimInt + Unsigned> IntoIterator for SparseSet<T> {
     type Item = T;
     type IntoIter = SparseSetIntoIter<T>;
 
@@ -723,6 +777,34 @@ mod tests {
     }
 
     #[test]
+    fn sparse_map_debug_impl() {
+        let mut map: SparseMap<u32, i32> = SparseMap::new();
+        map.insert(4, 5);
+        map.insert(6, 7);
+        map.insert(9, 10);
+        assert_eq!(format!("{:?}", map), "{4: 5, 6: 7, 9: 10}");
+    }
+
+    #[test]
+    fn sparse_map_eq() {
+        let mut map1: SparseMap<u32, i32> = SparseMap::new();
+        let mut map2: SparseMap<u32, i32> = SparseMap::new();
+        assert_eq!(map1, map2);
+
+        map1.insert(1, 2);
+        assert_ne!(map1, map2);
+
+        map2.insert(1, 2);
+        assert_eq!(map1, map2);
+
+        map1.insert(3, 4);
+        assert_ne!(map1, map2);
+
+        map2.insert(3, 5);
+        assert_ne!(map1, map2);
+    }
+
+    #[test]
     fn sparse_set_unit_tuple_trick_works() {
         use std::mem::size_of;
 
@@ -913,6 +995,38 @@ mod tests {
             s.remove(x);
         }
         assert!(s.is_empty());
+    }
+
+    #[test]
+    fn sparse_set_debug_impl() {
+        let mut set: SparseSet<u32> = SparseSet::new();
+        set.insert(4);
+        set.insert(6);
+        set.insert(9);
+        assert_eq!(format!("{:?}", set), "{4, 6, 9}");
+    }
+
+    #[test]
+    fn sparse_set_eq() {
+        let mut set1: SparseSet<u32> = SparseSet::new();
+        let mut set2: SparseSet<u32> = SparseSet::new();
+        assert_eq!(set1, set2);
+
+        set1.insert(1);
+        assert_ne!(set1, set2);
+
+        set2.insert(1);
+        assert_eq!(set1, set2);
+
+        set1.insert(3);
+        assert_ne!(set1, set2);
+
+        set2.insert(4);
+        assert_ne!(set1, set2);
+
+        set1.insert(4);
+        set2.insert(3);
+        assert_eq!(set1, set2);
     }
 
     fn gen_random_vec(size: usize) -> Vec<u32> {
