@@ -534,8 +534,14 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
     ///     println!("{}", x);
     /// }
     /// ```
-    pub fn union<'a>(&'a self, other: &'a Self) -> Union<'a, T> {
-        Union(SparseSet::new(), self.iter(), other.iter())
+    pub fn union<'a>(
+        &'a self,
+        other: &'a Self,
+    ) -> Union<T, core::iter::Chain<SparseSetIter<T>, SparseSetIter<T>>> {
+        Union {
+            u: SparseSet::new(),
+            i: self.iter().chain(other.iter()),
+        }
     }
 
     /// Unions in-place with the specified other set.
@@ -555,6 +561,30 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
     pub fn union_with(&mut self, other: &Self) {
         for value in other.iter() {
             self.insert(value);
+        }
+    }
+
+    /// Iterator over the union of all sets in the given iterator.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thinset::{set, SparseSet};
+    ///
+    /// let s = vec![set![1, 2, 3], set![2, 3, 4], set![3, 4, 5]];
+    /// let u = SparseSet::union_all(s.iter()).collect::<SparseSet<u8>>();
+    ///
+    /// assert_eq!(u, set![1, 2, 3, 4, 5]);
+    /// ```
+    pub fn union_all<'a, I: Iterator<Item = &'a Self>>(
+        i: I,
+    ) -> Union<
+        T,
+        core::iter::FlatMap<I, SparseSetIter<'a, T>, fn(&'a SparseSet<T>) -> SparseSetIter<'a, T>>,
+    > {
+        Union {
+            u: SparseSet::new(),
+            i: i.flat_map(Self::iter),
         }
     }
 }
@@ -646,42 +676,40 @@ impl<T: PrimInt + Unsigned> Iterator for SparseSetIntoIter<T> {
     }
 }
 
-#[derive(Clone)]
-pub struct Union<'a, T: PrimInt + Unsigned>(
-    SparseSet<T>,
-    SparseSetIter<'a, T>,
-    SparseSetIter<'a, T>,
-);
+impl<T: PrimInt + Unsigned> FromIterator<T> for SparseSet<T> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let mut s = SparseSet::new();
 
-impl<'a, T: PrimInt + Unsigned> Iterator for Union<'a, T> {
+        for x in iter {
+            s.insert(x);
+        }
+
+        s
+    }
+}
+
+#[derive(Clone)]
+pub struct Union<T: PrimInt + Unsigned, I: Iterator<Item = T>> {
+    u: SparseSet<T>,
+    i: I,
+}
+
+impl<T: PrimInt + Unsigned, I: Iterator<Item = T>> Iterator for Union<T, I> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        // Get the next item from the first iterator, insert it into the set, and return it.
-        if let Some(x) = self.1.next() {
-            self.0.insert(x);
-            return Some(x);
+        for x in self.i.by_ref() {
+            if !self.u.contains(x) {
+                self.u.insert(x);
+                return Some(x);
+            }
         }
 
-        // If the first iterator is exhausted, try to find an item in the second iterator that is not already in the set.
-        // If found, insert it into the set and return it.
-        if let Some(y) = self.2.by_ref().find(|y| self.0.insert(*y)) {
-            return Some(y);
-        }
-
-        // If both iterators are exhausted, return None.
         None
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let (l1, u1) = self.1.size_hint();
-        let (l2, u2) = self.2.size_hint();
-        let lower = std::cmp::max(l1, l2);
-        let upper = match (u1, u2) {
-            (Some(x), Some(y)) => x.checked_add(y),
-            _ => None,
-        };
-        (lower, upper)
+        self.i.size_hint()
     }
 }
 
@@ -1164,16 +1192,34 @@ mod tests {
     }
 
     #[test]
+    fn sparse_set_from_iter() {
+        let s = vec![set![1, 2, 3], set![2, 3, 4], set![3, 4, 5]];
+        let u = SparseSet::union_all(s.iter()).collect::<SparseSet<u8>>();
+
+        assert_eq!(u, set![1, 2, 3, 4, 5]);
+    }
+
+    #[test]
     fn sparse_set_union() {
         let a: SparseSet<usize> = set![1, 2, 4];
         let b: SparseSet<usize> = set![0, 2];
         let res = a.union(&b);
 
-        // Given sets of size 3 and 2, without knowing their exact contents,
-        // the union's size can be anywhere between 3 and 5.
-        assert_eq!(res.size_hint(), (3, Some(5)));
+        assert_eq!(res.size_hint(), (5, Some(5)));
 
         let expected: SparseSet<usize> = set![1, 2, 4, 0];
+        assert_eq!(
+            res.collect::<Vec<_>>(),
+            expected.into_iter().collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn sparse_set_unite_all() {
+        let sets: Vec<SparseSet<u8>> = vec![set![1, 2, 3], set![5, 4, 3], set![9, 20, 18, 2]];
+        let res = SparseSet::union_all(sets.iter());
+
+        let expected: SparseSet<u8> = set![1, 2, 3, 5, 4, 9, 20, 18];
         assert_eq!(
             res.collect::<Vec<_>>(),
             expected.into_iter().collect::<Vec<_>>()
