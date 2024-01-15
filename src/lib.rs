@@ -18,6 +18,22 @@
 //! The implementation is based on the paper "An efficient representation for sparse sets" (1993)
 //! by Briggs and Torczon.
 //!
+//! The table below compares the asymptotic complexities of several set operations for the sparse set when compared a bit set.
+//! `n` is the number of elements in the set and `u` is the size of the set's universe.
+//!
+//! | Operation | Sparse Set | Bit Set |
+//! | --------- | ---------- | ------- |
+//! | Insertion | O(1)       | O(1)    |
+//! | Removal   | O(1)       | O(1)    |
+//! | Lookup    | O(1)       | O(1)    |
+//! | Clear     | O(1)       | O(u)    |
+//! | Count     | O(1)       | O(u)    |
+//! | Iteration | O(n)       | O(u)    |
+//! | Union     | O(n)       | O(u)    |
+//! | Intersection | O(n)    | O(u)    |
+//! | Difference | O(n)      | O(u)    |
+//! | Complement | O(n)      | O(u)    |
+//!
 //! # Examples
 //!
 //! ```
@@ -302,9 +318,7 @@ impl<K: PrimInt + Unsigned, V: Copy> SparseMap<K, V> {
 
     /// An iterator visiting all elements in arbitrary order.
     pub fn iter(&self) -> SparseMapIter<'_, K, V> {
-        SparseMapIter {
-            iter: self.dense.iter(),
-        }
+        SparseMapIter(self.dense.iter())
     }
 }
 
@@ -346,19 +360,28 @@ impl<K: PrimInt + Unsigned, V: Copy + Eq> Eq for SparseMap<K, V> {}
 /// This struct is created by the [`iter`] method on [`SparseMap`].
 ///
 /// [`iter`]: SparseMap::iter
-pub struct SparseMapIter<'a, K: PrimInt + Unsigned, V: Copy> {
-    iter: std::slice::Iter<'a, Pair<K, V>>,
-}
+#[derive(Clone)]
+pub struct SparseMapIter<'a, K: PrimInt + Unsigned, V: Copy>(std::slice::Iter<'a, Pair<K, V>>);
 
 impl<'a, K: PrimInt + Unsigned, V: Copy> Iterator for SparseMapIter<'a, K, V> {
     type Item = &'a Pair<K, V>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
+        self.0.next()
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        self.iter.size_hint()
+        self.0.size_hint()
+    }
+}
+
+impl<K: PrimInt + Unsigned, V: Copy> Clone for SparseMap<K, V> {
+    fn clone(&self) -> Self {
+        Self {
+            cap: self.cap,
+            sparse: self.sparse.clone(),
+            dense: self.dense.clone(),
+        }
     }
 }
 
@@ -385,6 +408,7 @@ impl<K: PrimInt + Unsigned, V: Copy> IntoIterator for SparseMap<K, V> {
 /// This struct is created by the [`into_iter`] method on [`SparseMap`].
 ///
 /// [`into_iter`]: SparseMap::iter
+#[derive(Clone)]
 pub struct SparseMapIntoIter<K: PrimInt + Unsigned, V: Copy> {
     iter: std::vec::IntoIter<Pair<K, V>>,
 }
@@ -415,6 +439,7 @@ impl<K: PrimInt + Unsigned, V: Copy> std::ops::IndexMut<K> for SparseMap<K, V> {
     }
 }
 
+/// A sparse set of integer values.
 pub struct SparseSet<T: PrimInt + Unsigned> {
     inner: SparseMap<T, ()>,
 }
@@ -491,6 +516,55 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
             iter: self.inner.iter(),
         }
     }
+
+    /// Iterator over each element stored in `self` union `other`.
+    /// This constructs a new sparse set internally.
+    /// See [union_with](#method.union_with) for an efficient in-place version.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thinset::{set, SparseSet};
+    ///
+    /// let a: SparseSet<usize> = set![1, 2, 4];
+    /// let b: SparseSet<usize> = set![0, 2];
+    ///
+    /// // Print 0, 1, 2, 4 in arbitrary order
+    /// for x in a.union(&b) {
+    ///     println!("{}", x);
+    /// }
+    /// ```
+    pub fn union<'a>(&'a self, other: &'a Self) -> Union<'a, T> {
+        Union(SparseSet::new(), self.iter(), other.iter())
+    }
+
+    /// Unions in-place with the specified other set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thinset::{set, SparseSet};
+    ///
+    /// let mut a: SparseSet<usize> = set![1, 2, 4];
+    /// let b: SparseSet<usize> = set![0, 2];
+    /// let res: SparseSet<usize> = set![0, 1, 2, 4];
+    ///
+    /// a.union_with(&b);
+    /// assert_eq!(a, res);
+    /// ```
+    pub fn union_with(&mut self, other: &Self) {
+        for value in other.iter() {
+            self.insert(value);
+        }
+    }
+}
+
+impl<T: PrimInt + Unsigned> Clone for SparseSet<T> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+        }
+    }
 }
 
 impl<T: PrimInt + Unsigned> Default for SparseSet<T> {
@@ -522,6 +596,7 @@ impl<T: PrimInt + Unsigned> Eq for SparseSet<T> {}
 /// This struct is created by the [`iter`] method on [`SparseSet`].
 ///
 /// [`iter`]: SparseSet::iter
+#[derive(Clone)]
 pub struct SparseSetIter<'a, T: PrimInt + Unsigned> {
     iter: SparseMapIter<'a, T, ()>,
 }
@@ -554,6 +629,7 @@ impl<T: PrimInt + Unsigned> IntoIterator for SparseSet<T> {
 /// This struct is created by the [`into_iter`] method on [`SparseSet`].
 ///
 /// [`into_iter`]: SparseSet::into_iter
+#[derive(Clone)]
 pub struct SparseSetIntoIter<T: PrimInt + Unsigned> {
     iter: SparseMapIntoIter<T, ()>,
 }
@@ -567,6 +643,45 @@ impl<T: PrimInt + Unsigned> Iterator for SparseSetIntoIter<T> {
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.iter.size_hint()
+    }
+}
+
+#[derive(Clone)]
+pub struct Union<'a, T: PrimInt + Unsigned>(
+    SparseSet<T>,
+    SparseSetIter<'a, T>,
+    SparseSetIter<'a, T>,
+);
+
+impl<'a, T: PrimInt + Unsigned> Iterator for Union<'a, T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // Get the next item from the first iterator, insert it into the set, and return it.
+        if let Some(x) = self.1.next() {
+            self.0.insert(x);
+            return Some(x);
+        }
+
+        // If the first iterator is exhausted, try to find an item in the second iterator that is not already in the set.
+        // If found, insert it into the set and return it.
+        if let Some(y) = self.2.by_ref().find(|y| self.0.insert(*y)) {
+            return Some(y);
+        }
+
+        // If both iterators are exhausted, return None.
+        None
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let (l1, u1) = self.1.size_hint();
+        let (l2, u2) = self.2.size_hint();
+        let lower = std::cmp::max(l1, l2);
+        let upper = match (u1, u2) {
+            (Some(x), Some(y)) => x.checked_add(y),
+            _ => None,
+        };
+        (lower, upper)
     }
 }
 
@@ -1046,6 +1161,33 @@ mod tests {
         set1.insert(4);
         set2.insert(3);
         assert_eq!(set1, set2);
+    }
+
+    #[test]
+    fn sparse_set_union() {
+        let a: SparseSet<usize> = set![1, 2, 4];
+        let b: SparseSet<usize> = set![0, 2];
+        let res = a.union(&b);
+
+        // Given sets of size 3 and 2, without knowing how many elements overlap,
+        // the union's size can be anywhere between 3 and 5.
+        assert_eq!(res.size_hint(), (3, Some(5)));
+
+        let expected: SparseSet<usize> = set![1, 2, 4, 0];
+        assert_eq!(
+            res.collect::<Vec<_>>(),
+            expected.into_iter().collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn sparse_set_union_with() {
+        let mut a: SparseSet<usize> = set![1, 2, 4];
+        let b: SparseSet<usize> = set![0, 2];
+        let res: SparseSet<usize> = set![0, 1, 2, 4];
+
+        a.union_with(&b);
+        assert_eq!(a, res);
     }
 
     fn gen_random_vec(size: usize) -> Vec<u32> {
