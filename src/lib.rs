@@ -534,10 +534,7 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
     ///     println!("{}", x);
     /// }
     /// ```
-    pub fn union<'a>(
-        &'a self,
-        other: &'a Self,
-    ) -> Union<T, core::iter::Chain<SparseSetIter<T>, SparseSetIter<T>>> {
+    pub fn union<'a>(&'a self, other: &'a Self) -> Union<T, UnionIter<'a, T>> {
         Union {
             u: SparseSet::new(),
             i: self.iter().chain(other.iter()),
@@ -576,12 +573,7 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
     ///
     /// assert_eq!(u, set![1, 2, 3, 4, 5]);
     /// ```
-    pub fn union_all<'a, I: Iterator<Item = &'a Self>>(
-        i: I,
-    ) -> Union<
-        T,
-        core::iter::FlatMap<I, SparseSetIter<'a, T>, fn(&'a SparseSet<T>) -> SparseSetIter<'a, T>>,
-    > {
+    pub fn union_all<'a, I: Iterator<Item = &'a Self>>(i: I) -> Union<T, UnionAllIter<'a, I, T>> {
         Union {
             u: SparseSet::new(),
             i: i.flat_map(Self::iter),
@@ -712,6 +704,10 @@ impl<T: PrimInt + Unsigned, I: Iterator<Item = T>> Iterator for Union<T, I> {
         self.i.size_hint()
     }
 }
+
+type UnionIter<'a, T> = core::iter::Chain<SparseSetIter<'a, T>, SparseSetIter<'a, T>>;
+type UnionAllIter<'a, I, T> =
+    core::iter::FlatMap<I, SparseSetIter<'a, T>, fn(&'a SparseSet<T>) -> SparseSetIter<'a, T>>;
 
 /// A macro to create and initialize sets in one go.
 ///
