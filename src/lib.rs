@@ -1169,7 +1169,7 @@ mod tests {
         let b: SparseSet<usize> = set![0, 2];
         let res = a.union(&b);
 
-        // Given sets of size 3 and 2, without knowing how many elements overlap,
+        // Given sets of size 3 and 2, without knowing their exact contents,
         // the union's size can be anywhere between 3 and 5.
         assert_eq!(res.size_hint(), (3, Some(5)));
 
