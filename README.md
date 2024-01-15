@@ -61,6 +61,22 @@ the values that are stored in the set. Under the hood, `SparseSet` is a `SparseM
 The implementation is based on the paper "An efficient representation for sparse sets" (1993)
 by Briggs and Torczon.
 
+The table below compares the asymptotic complexities of several set operations for the sparse set when compared a bit set.
+`n` is the number of elements in the set and `u` is the size of the set's universe.
+
+| Operation | Sparse Set | Bit Set |
+| --------- | ---------- | ------- |
+| Insertion | O(1)       | O(1)    |
+| Removal   | O(1)       | O(1)    |
+| Lookup    | O(1)       | O(1)    |
+| Clear     | O(1)       | O(u)    |
+| Count     | O(1)       | O(u)    |
+| Iteration | O(n)       | O(u)    |
+| Union     | O(n)       | O(u)    |
+| Intersection | O(n)    | O(u)    |
+| Difference | O(n)      | O(u)    |
+| Complement | O(n)      | O(u)    |
+
 #### Examples
 
 ```rust
