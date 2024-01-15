@@ -19,13 +19,13 @@
 
 [crates.io shield]: https://img.shields.io/crates/v/thinset?label=latest
 [crates.io link]: https://crates.io/crates/thinset
-[docs.rs badge]: https://docs.rs/thinset/badge.svg?version=0.1.0
-[docs.rs link]: https://docs.rs/thinset/0.1.0/thinset/
+[docs.rs badge]: https://docs.rs/thinset/badge.svg?version=0.3.0
+[docs.rs link]: https://docs.rs/thinset/0.3.0/thinset/
 [github ci badge]: https://github.com/Chriscbr/thinset/actions/workflows/rust.yml/badge.svg
 [rustc 1.0+]: https://img.shields.io/badge/rustc-1.0%2B-blue.svg
 [Rust 1.0]: https://blog.rust-lang.org/2015/05/15/Rust-1.0.html
 [deps.rs status]: https://deps.rs/repo/github/Chriscbr/thinset/status.svg
-[deps.rs link]: https://deps.rs/crate/thinset/0.1.0
+[deps.rs link]: https://deps.rs/crate/thinset/0.3.0
 [shields.io download count]: https://img.shields.io/crates/d/thinset.svg
 
 ## Usage
