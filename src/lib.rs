@@ -571,7 +571,7 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
     /// let s = vec![set![1, 2, 3], set![2, 3, 4], set![3, 4, 5]];
     /// let u = SparseSet::union_all(s.iter()).collect::<SparseSet<u8>>();
     ///
-    /// assert_eq!(u, set![1, 2, 3, 4, 5]);
+    /// assert_eq!(u, set![5, 1, 3, 4, 2]);
     /// ```
     pub fn union_all<'a, I: Iterator<Item = &'a Self>>(i: I) -> Union<T, UnionAllIter<'a, I, T>> {
         Union {
@@ -691,8 +691,8 @@ impl<T: PrimInt + Unsigned, I: Iterator<Item = T>> Iterator for Union<T, I> {
 
     fn next(&mut self) -> Option<Self::Item> {
         for x in self.i.by_ref() {
-            if !self.u.contains(x) {
-                self.u.insert(x);
+            // `insert` returns `true` if the value is new.
+            if self.u.insert(x) {
                 return Some(x);
             }
         }
