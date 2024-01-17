@@ -583,6 +583,25 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
         self.is_superset(other) && self.inner.len() > other.inner.len()
     }
 
+    /// Return `true` if `self` (A) and `other` (B) are disjoint:
+    ///
+    /// A ∩ B = ∅.
+    pub fn is_disjoint(&self, other: &Self) -> bool {
+        for x in self.iter() {
+            if other.contains(x) {
+                return false;
+            }
+        }
+
+        for x in other.iter() {
+            if self.contains(x) {
+                return false;
+            }
+        }
+
+        true
+    }
+
     /// Iterator over each element stored in `self` union `other`.
     /// This constructs a new sparse set internally.
     /// See [union_with](#method.union_with) for an efficient in-place version.
@@ -1270,6 +1289,19 @@ mod tests {
         assert!(b.is_superset(&a));
         assert!(!a.is_proper_subset(&b));
         assert!(!b.is_proper_superset(&a));
+    }
+
+    #[test]
+    fn disjoint_sets() {
+        let a: SparseSet<u32> = set![1, 2, 3, 4, 5];
+        let b: SparseSet<u32> = set![6, 7, 8, 9, 10];
+        assert!(a.is_disjoint(&b));
+        assert!(b.is_disjoint(&a));
+
+        let mut a = a;
+        a.insert(6);
+        assert!(!a.is_disjoint(&b));
+        assert!(!b.is_disjoint(&a));
     }
 
     fn gen_random_vec(size: usize) -> Vec<u32> {
