@@ -571,7 +571,7 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
     ///
     /// This is the same as [`Self::is_proper_superset`] with the arguments flipped.
     pub fn is_proper_subset(&self, other: &Self) -> bool {
-        self.is_subset(other) && self.inner.len() < other.inner.len()
+        self.inner.len() < other.inner.len() && self.is_subset(other)
     }
 
     /// Return `true` if `self` (A) is a proper superset of `other` (B):
@@ -580,7 +580,7 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
     ///
     /// This is the same as [`Self::is_proper_subset`] with the arguments flipped.
     pub fn is_proper_superset(&self, other: &Self) -> bool {
-        self.is_superset(other) && self.inner.len() > other.inner.len()
+        self.inner.len() > other.inner.len() && self.is_superset(other)
     }
 
     /// Return `true` if `self` (A) and `other` (B) are disjoint:
@@ -589,12 +589,6 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
     pub fn is_disjoint(&self, other: &Self) -> bool {
         for x in self.iter() {
             if other.contains(x) {
-                return false;
-            }
-        }
-
-        for x in other.iter() {
-            if self.contains(x) {
                 return false;
             }
         }
