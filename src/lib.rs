@@ -789,6 +789,36 @@ macro_rules! set {
     );
 }
 
+/// Check if `self` is an element of a given set.
+/// See [`InSet::is_in`] for more information.
+pub trait InSet {
+    type Set;
+
+    /// Return true if `self` (x) is an element of `set` (A):
+    ///
+    /// x ∈ A.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thinset::{set, SparseSet, InSet};
+    ///
+    /// let s: SparseSet<u16> = set![5, 4, 15, 3, 91];
+    /// if 5.is_in(&s) {
+    ///     println!("5 is an element of s");
+    /// }
+    /// ```
+    fn is_in(&self, set: &Self::Set) -> bool;
+}
+
+impl<T: PrimInt + Unsigned> InSet for T {
+    type Set = SparseSet<T>;
+
+    fn is_in(&self, set: &Self::Set) -> bool {
+        set.contains(*self)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1066,6 +1096,7 @@ mod tests {
         assert_eq!(set.len(), 3);
         assert!(!set.contains(0));
         assert!(set.contains(42));
+        assert!(42.is_in(&set));
         assert!(!set.contains(5));
         assert!(set.contains(6));
         assert!(set.contains(7));
@@ -1074,6 +1105,14 @@ mod tests {
 
         assert!(set.is_empty());
         assert_eq!(set.len(), 0);
+    }
+
+    #[test]
+    fn sparse_set_in() {
+        let s: SparseSet<u8> = set![1, 2, 3, 4];
+        assert!(1.is_in(&s));
+        assert!(!6.is_in(&s));
+        assert!(!u8::MAX.is_in(&s));
     }
 
     #[test]
