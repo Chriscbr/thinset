@@ -31,7 +31,7 @@
 //!
 //! #### Benchmarks
 //!
-//! The following benchmarks were run on a 2020 MacBook Pro with a 2 GHz Quad-Core Intel Core i5 processor.
+//! The following benchmarks were run on a 2020 MacBook Pro with a 2 GHz Intel Core i5 processor.
 //!
 //! The benchmark compares `SparseSet` to the standard library's `HashSet` and the `bit-set` crate's `BitSet`.
 //!

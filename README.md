@@ -48,7 +48,7 @@ This type of set is useful when you need to efficiently track set membership for
 from a large universe, but the values are relatively spread apart.
 
 Compared to the standard library's `HashSet`, clearing a set is O(1) instead of O(n).
-Compared to bitmap-based sets like the `bit-set` crate, iteration over the set is
+Compared to a bitmap-based set, iteration over the set is
 proportional to the cardinality of the set (how many elements you have) instead of proportional to the maximum size of the set.
 
 The main downside is that the set uses more memory than other set implementations.
@@ -74,7 +74,7 @@ The table below compares the asymptotic complexities of several set operations f
 
 ####### Benchmarks
 
-The following benchmarks were run on a 2020 MacBook Pro with a 2 GHz Quad-Core Intel Core i5 processor.
+The following benchmarks were run on a 2020 MacBook Pro with a 2 GHz Intel Core i5 processor.
 
 The benchmark compares `SparseSet` to the standard library's `HashSet` and the `bit-set` crate's `BitSet`.
 
