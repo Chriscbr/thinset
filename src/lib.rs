@@ -1,22 +1,17 @@
-//! An implementation of a set and a map using a pair of sparse and dense arrays as backing stores.
+//! An implementation of a set and a map using a pair of sparse and dense arrays as backing stores,
+//! based on the paper "An efficient representation for sparse sets" (1993) by Briggs and Torczon.
 //!
 //! This type of set is useful when you need to efficiently track set membership for integers
 //! from a large universe, but the values are relatively spread apart.
 //!
-//! The sparse set supports constant-time insertion, removal, lookups as expected.
-//! In addition:
-//!
-//! - Compared to the standard library's `HashSet`, clearing the set is constant-time instead of linear time.
-//! - Compared to bitmap-based sets like the `bit-set` crate, iteration over the set is
+//! Compared to the standard library's `HashSet`, clearing a set is O(1) instead of O(n).
+//! Compared to a bitmap-based set, iteration over the set is
 //! proportional to the cardinality of the set (how many elements you have) instead of proportional to the maximum size of the set.
 //!
-//! The main downside is that the set requires more memory than other set implementations.
+//! The main downside is that the set uses more memory than other set implementations.
 //!
 //! The map behaves identically to the set with the exception that it tracks data alongside
 //! the values that are stored in the set. Under the hood, `SparseSet` is a `SparseMap` of keys to `()`.
-//!
-//! The implementation is based on the paper "An efficient representation for sparse sets" (1993)
-//! by Briggs and Torczon.
 //!
 //! The table below compares the asymptotic complexities of several set operations for the sparse set when compared a bit set.
 //! `n` is the number of elements in the set and `u` is the size of the set's universe.
@@ -33,6 +28,25 @@
 //! | Intersection | O(n)    | O(u)    |
 //! | Difference | O(n)      | O(u)    |
 //! | Complement | O(n)      | O(u)    |
+//!
+//! #### Benchmarks
+//!
+//! The following benchmarks were run on a 2020 MacBook Pro with a 2 GHz Quad-Core Intel Core i5 processor.
+//!
+//! The benchmark compares `SparseSet` to the standard library's `HashSet` and the `bit-set` crate's `BitSet`.
+//!
+//! When inserting 1000 random elements into the set from a universe of [0, 2^16) and then iterating over the set,
+//! the sparse set is 4.1x faster than the `HashSet` and 1.7x faster than the `BitSet`:
+//!
+//! - `SparseSet`: 160,329 ns/iter (+/- 55,664)
+//! - `BitSet`: 278,428 ns/iter (+/- 42,477)
+//! - `HashSet`: 662,964 ns/iter (+/- 56,851)
+//!
+//! Benchmarks are available in examples/bench.rs and can be run with the following command:
+//!
+//! ```bash
+//! cargo run --example bench
+//! ```
 //!
 //! # Examples
 //!
@@ -317,6 +331,19 @@ impl<K: PrimInt + Unsigned, V: Copy> SparseMap<K, V> {
     }
 
     /// An iterator visiting all elements in arbitrary order.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thinset::{map, Pair, SparseMap};
+    ///
+    /// let mut map: SparseMap<u32, u32> = map![(0, 1), (1, 2), (2, 3)];
+    ///
+    /// // Print 0:1, 1:2, 2:3 in arbitrary order
+    /// for Pair {key, value} in map.iter() {
+    ///    println!("{key}:{value}");
+    /// }
+    /// ```
     pub fn iter(&self) -> SparseMapIter<'_, K, V> {
         SparseMapIter(self.dense.iter())
     }
@@ -769,14 +796,7 @@ impl<T: PrimInt + Unsigned, I: Iterator<Item = T>> Iterator for Union<T, I> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        for x in self.i.by_ref() {
-            // `insert` returns `true` if the value is new.
-            if self.u.insert(x) {
-                return Some(x);
-            }
-        }
-
-        None
+        self.i.by_ref().find(|&x| self.u.insert(x))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -787,6 +807,31 @@ impl<T: PrimInt + Unsigned, I: Iterator<Item = T>> Iterator for Union<T, I> {
 type UnionIter<'a, T> = core::iter::Chain<SparseSetIter<'a, T>, SparseSetIter<'a, T>>;
 type UnionAllIter<'a, I, T> =
     core::iter::FlatMap<I, SparseSetIter<'a, T>, fn(&'a SparseSet<T>) -> SparseSetIter<'a, T>>;
+
+/// A macro to create and initialize maps in one go.
+/// ```rust
+/// use thinset::{map, SparseMap};
+/// let mut map: SparseMap<u32, u32> = map![(4, 0), (32, 1), (16, 2), (24, 3), (63, 4)];
+/// assert_eq!(map.get(32), Some(&1));
+/// assert_eq!(map.get(63), Some(&4));
+/// map.update(32, |n| n * 2, 0);
+/// assert_eq!(map.get(32), Some(&2));
+/// ```
+#[macro_export]
+macro_rules! map {
+    () => (
+        $crate::SparseMap::new()
+    );
+    ($($x:expr),+ $(,)?) => (
+        {
+            let mut m = $crate::SparseMap::new();
+            $(
+                m.insert($x.0, $x.1);
+            )+
+            m
+        }
+    );
+}
 
 /// A macro to create and initialize sets in one go.
 ///
@@ -1185,6 +1230,29 @@ mod tests {
             assert!(set.contains(9));
             assert!(set.contains(10));
             assert!(set.contains(11));
+        }
+    }
+
+    #[test]
+    fn sparse_map_macro_example() {
+        {
+            let mut map: SparseMap<u32, u32> = map![
+                (4, 0),
+                (32, 1),
+                (16, 2),
+                (24, 3),
+                (63, 4), // Trailing comma is allowed for visual uniformity.
+            ];
+            assert_eq!(map.get(32), Some(&1));
+            assert_eq!(map.get(63), Some(&4));
+            map.update(32, |n| n * 2, 0);
+            assert_eq!(map.get(32), Some(&2));
+        }
+        {
+            let mut map: SparseMap<u32, u32> = map![];
+            assert_eq!(map.get(32), None);
+            map.insert(32, 1);
+            assert_eq!(map.get(32), Some(&1));
         }
     }
 

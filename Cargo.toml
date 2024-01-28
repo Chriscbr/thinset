@@ -17,4 +17,6 @@ edition = "2021"
 num-traits = "0.2.17"
 
 [dev-dependencies]
+bencher = "0.1.5"
+bit-set = "0.5.3"
 rand = "0.8.5"

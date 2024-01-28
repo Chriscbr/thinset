@@ -41,25 +41,20 @@ thinset = "0.1"
 
 <!-- cargo-rdme start -->
 
-An implementation of a set and a map using a pair of sparse and dense arrays as backing stores.
+An implementation of a set and a map using a pair of sparse and dense arrays as backing stores,
+based on the paper "An efficient representation for sparse sets" (1993) by Briggs and Torczon.
 
 This type of set is useful when you need to efficiently track set membership for integers
 from a large universe, but the values are relatively spread apart.
 
-The sparse set supports constant-time insertion, removal, lookups as expected.
-In addition:
-
-- Compared to the standard library's `HashSet`, clearing the set is constant-time instead of linear time.
-- Compared to bitmap-based sets like the `bit-set` crate, iteration over the set is
+Compared to the standard library's `HashSet`, clearing a set is O(1) instead of O(n).
+Compared to bitmap-based sets like the `bit-set` crate, iteration over the set is
 proportional to the cardinality of the set (how many elements you have) instead of proportional to the maximum size of the set.
 
-The main downside is that the set requires more memory than other set implementations.
+The main downside is that the set uses more memory than other set implementations.
 
 The map behaves identically to the set with the exception that it tracks data alongside
 the values that are stored in the set. Under the hood, `SparseSet` is a `SparseMap` of keys to `()`.
-
-The implementation is based on the paper "An efficient representation for sparse sets" (1993)
-by Briggs and Torczon.
 
 The table below compares the asymptotic complexities of several set operations for the sparse set when compared a bit set.
 `n` is the number of elements in the set and `u` is the size of the set's universe.
@@ -76,6 +71,25 @@ The table below compares the asymptotic complexities of several set operations f
 | Intersection | O(n)    | O(u)    |
 | Difference | O(n)      | O(u)    |
 | Complement | O(n)      | O(u)    |
+
+####### Benchmarks
+
+The following benchmarks were run on a 2020 MacBook Pro with a 2 GHz Quad-Core Intel Core i5 processor.
+
+The benchmark compares `SparseSet` to the standard library's `HashSet` and the `bit-set` crate's `BitSet`.
+
+When inserting 1000 random elements into the set from a universe of [0, 2^16) and then iterating over the set,
+the sparse set is 4.1x faster than the `HashSet` and 1.7x faster than the `BitSet`:
+
+- `SparseSet`: 160,329 ns/iter (+/- 55,664)
+- `BitSet`: 278,428 ns/iter (+/- 42,477)
+- `HashSet`: 662,964 ns/iter (+/- 56,851)
+
+Benchmarks are available in examples/bench.rs and can be run with the following command:
+
+```bash
+cargo run --example bench
+```
 
 #### Examples
 
