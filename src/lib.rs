@@ -29,14 +29,14 @@
 //! | Difference | O(n)      | O(u)    |
 //! | Complement | O(n)      | O(u)    |
 //!
-//! #### Benchmarks
+//! # Benchmarks
 //!
 //! The following benchmarks were run on a 2020 MacBook Pro with a 2 GHz Intel Core i5 processor.
 //!
 //! The benchmark compares `SparseSet` to the standard library's `HashSet` and the `bit-set` crate's `BitSet`.
 //!
 //! When inserting 1000 random elements into the set from a universe of [0, 2^16) and then iterating over the set,
-//! the sparse set is 4.1x faster than the `HashSet` and 1.7x faster than the `BitSet`:
+//! the sparse set is **4.1x** faster than the `HashSet` and **1.7x** faster than the `BitSet`:
 //!
 //! - `SparseSet`: 160,329 ns/iter (+/- 55,664)
 //! - `BitSet`: 278,428 ns/iter (+/- 42,477)
