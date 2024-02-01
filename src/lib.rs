@@ -94,25 +94,25 @@ use num_traits::Unsigned;
 
 /// A pair stored in the map. Mostly used for readability advantages over (,).
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct Pair<K: PrimInt + Unsigned, V: Copy> {
+pub struct Pair<K, V> {
     pub key: K,
     pub value: V,
 }
 
-impl<K: PrimInt + Unsigned, V: Copy> Pair<K, V> {
+impl<K, V> Pair<K, V> {
     fn new(key: K, value: V) -> Self {
         Pair { key, value }
     }
 }
 
-/// A sparse map of unsigned integer keys to integer values (or anything else that's copy).
-pub struct SparseMap<K: PrimInt + Unsigned, V: Copy> {
+/// A sparse map of unsigned integer keys to values.
+pub struct SparseMap<K: PrimInt + Unsigned, V> {
     cap: usize,
     sparse: Vec<usize>,
     dense: Vec<Pair<K, V>>,
 }
 
-impl<K: PrimInt + Unsigned, V: Copy> SparseMap<K, V> {
+impl<K: PrimInt + Unsigned, V> SparseMap<K, V> {
     /// Creates an empty SparseMap.
     pub fn new() -> Self {
         Self::with_capacity(0x1000)
@@ -265,7 +265,7 @@ impl<K: PrimInt + Unsigned, V: Copy> SparseMap<K, V> {
     /// If `key` cannot be cast to `usize`.
     pub fn update<F>(&mut self, key: K, f: F, default: V) -> bool
     where
-        F: Fn(V) -> V,
+        F: Fn(&V) -> V,
     {
         let ukey = key.to_usize().unwrap();
         if ukey >= self.cap {
@@ -275,7 +275,7 @@ impl<K: PrimInt + Unsigned, V: Copy> SparseMap<K, V> {
 
         let r = self.sparse[ukey];
         if r < self.dense.len() && self.dense[r].key == key {
-            self.dense[r].value = f(self.dense[r].value);
+            self.dense[r].value = f(&self.dense[r].value);
             true
         } else {
             self.insert(key, default);
@@ -299,12 +299,9 @@ impl<K: PrimInt + Unsigned, V: Copy> SparseMap<K, V> {
         // Remove only if the pair is part of the map.
         if r < self.dense.len() && self.dense[r].key == key {
             // Remove the pair by giving its slot to the last pair in `dense`.
-            let last_pair = self.dense[self.dense.len() - 1];
+            let last_pair = &self.dense[self.dense.len() - 1];
             self.sparse[last_pair.key.to_usize().unwrap()] = r; // Update `last_pair`'s link into `sparse`.
-            self.dense[r] = last_pair;
-
-            // Delete the now expendable copy of `last_pair`.
-            self.dense.pop();
+            self.dense.swap_remove(r); // Swap `last_pair` with the pair to remove (at `r`).
 
             return true;
         }
@@ -349,7 +346,7 @@ impl<K: PrimInt + Unsigned, V: Copy> SparseMap<K, V> {
     }
 }
 
-impl<K: PrimInt + Unsigned + Debug, V: Copy + Debug> Debug for SparseMap<K, V> {
+impl<K: PrimInt + Unsigned + Debug, V: Debug> Debug for SparseMap<K, V> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut d = f.debug_map();
         for pair in &self.dense {
@@ -359,7 +356,7 @@ impl<K: PrimInt + Unsigned + Debug, V: Copy + Debug> Debug for SparseMap<K, V> {
     }
 }
 
-impl<K: PrimInt + Unsigned, V: Copy + PartialEq> PartialEq for SparseMap<K, V> {
+impl<K: PrimInt + Unsigned, V: PartialEq> PartialEq for SparseMap<K, V> {
     fn eq(&self, other: &Self) -> bool {
         if self.len() != other.len() {
             return false;
@@ -380,7 +377,7 @@ impl<K: PrimInt + Unsigned, V: Copy + PartialEq> PartialEq for SparseMap<K, V> {
     }
 }
 
-impl<K: PrimInt + Unsigned, V: Copy + Eq> Eq for SparseMap<K, V> {}
+impl<K: PrimInt + Unsigned, V: Eq> Eq for SparseMap<K, V> {}
 
 /// An iterator over the key-value pairs of a [`SparseMap`].
 ///
@@ -388,9 +385,9 @@ impl<K: PrimInt + Unsigned, V: Copy + Eq> Eq for SparseMap<K, V> {}
 ///
 /// [`iter`]: SparseMap::iter
 #[derive(Clone)]
-pub struct SparseMapIter<'a, K: PrimInt + Unsigned, V: Copy>(std::slice::Iter<'a, Pair<K, V>>);
+pub struct SparseMapIter<'a, K: PrimInt + Unsigned, V>(std::slice::Iter<'a, Pair<K, V>>);
 
-impl<'a, K: PrimInt + Unsigned, V: Copy> Iterator for SparseMapIter<'a, K, V> {
+impl<'a, K: PrimInt + Unsigned, V> Iterator for SparseMapIter<'a, K, V> {
     type Item = &'a Pair<K, V>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -402,7 +399,7 @@ impl<'a, K: PrimInt + Unsigned, V: Copy> Iterator for SparseMapIter<'a, K, V> {
     }
 }
 
-impl<K: PrimInt + Unsigned, V: Copy> Clone for SparseMap<K, V> {
+impl<K: PrimInt + Unsigned, V: Clone> Clone for SparseMap<K, V> {
     fn clone(&self) -> Self {
         Self {
             cap: self.cap,
@@ -412,14 +409,14 @@ impl<K: PrimInt + Unsigned, V: Copy> Clone for SparseMap<K, V> {
     }
 }
 
-impl<K: PrimInt + Unsigned, V: Copy> Default for SparseMap<K, V> {
+impl<K: PrimInt + Unsigned, V> Default for SparseMap<K, V> {
     fn default() -> Self {
         Self::new()
     }
 }
 
 // `IntoIterator` implementation for [`SparseMap`].
-impl<K: PrimInt + Unsigned, V: Copy> IntoIterator for SparseMap<K, V> {
+impl<K: PrimInt + Unsigned, V> IntoIterator for SparseMap<K, V> {
     type Item = Pair<K, V>;
     type IntoIter = SparseMapIntoIter<K, V>;
 
@@ -436,11 +433,11 @@ impl<K: PrimInt + Unsigned, V: Copy> IntoIterator for SparseMap<K, V> {
 ///
 /// [`into_iter`]: SparseMap::iter
 #[derive(Clone)]
-pub struct SparseMapIntoIter<K: PrimInt + Unsigned, V: Copy> {
+pub struct SparseMapIntoIter<K: PrimInt + Unsigned, V> {
     iter: std::vec::IntoIter<Pair<K, V>>,
 }
 
-impl<K: PrimInt + Unsigned, V: Copy> Iterator for SparseMapIntoIter<K, V> {
+impl<K: PrimInt + Unsigned, V> Iterator for SparseMapIntoIter<K, V> {
     type Item = Pair<K, V>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -452,7 +449,7 @@ impl<K: PrimInt + Unsigned, V: Copy> Iterator for SparseMapIntoIter<K, V> {
     }
 }
 
-impl<K: PrimInt + Unsigned, V: Copy> std::ops::Index<K> for SparseMap<K, V> {
+impl<K: PrimInt + Unsigned, V> std::ops::Index<K> for SparseMap<K, V> {
     type Output = V;
 
     fn index(&self, key: K) -> &Self::Output {
@@ -460,7 +457,7 @@ impl<K: PrimInt + Unsigned, V: Copy> std::ops::Index<K> for SparseMap<K, V> {
     }
 }
 
-impl<K: PrimInt + Unsigned, V: Copy> std::ops::IndexMut<K> for SparseMap<K, V> {
+impl<K: PrimInt + Unsigned, V> std::ops::IndexMut<K> for SparseMap<K, V> {
     fn index_mut(&mut self, key: K) -> &mut Self::Output {
         self.get_mut(key).unwrap()
     }
@@ -919,7 +916,7 @@ mod tests {
 
         map.update(41, |n| n * n, 0);
         assert_eq!(map.get(41), Some(&4));
-        map.update(14, |n| n, 10);
+        map.update(14, |n| *n, 10);
         assert_eq!(map.get(14), Some(&10));
 
         map.clear();
