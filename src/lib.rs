@@ -114,9 +114,19 @@ pub struct SparseMap<K: PrimInt + Unsigned, V> {
 
 impl<K: PrimInt + Unsigned, V> SparseMap<K, V> {
     /// Creates an empty SparseMap.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thinset::SparseMap;
+    ///
+    /// let map: SparseMap<u32, u32> = SparseMap::new();
+    /// assert!(map.is_empty());
+    /// ```
     pub fn new() -> Self {
         Self::with_capacity(0x1000)
     }
+
     /// Creates an empty SparseMap that's allocated to store elements
     /// with keys up to `cap - 1`. If bigger keys get inserted, the
     /// map grows automatically.
@@ -126,6 +136,21 @@ impl<K: PrimInt + Unsigned, V> SparseMap<K, V> {
     /// For example, if `K` is `u8` and the capacity `10000` is given, only `255`
     /// elements will be allocated, because it's impossible for a set of `u8`s to hold
     /// any more elements than `255`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thinset::SparseMap;
+    ///
+    /// let mut map: SparseMap<u8, u32> = SparseMap::with_capacity(100);
+    /// assert!(map.is_empty());
+    ///
+    /// // The map's initial capacity is 100, but it can grow to hold more elements.
+    /// for i in 0..200 {
+    ///    map.insert(i, 0);
+    /// }
+    /// assert_eq!(map.len(), 200);
+    /// ```
     #[allow(clippy::uninit_vec)]
     pub fn with_capacity(cap: usize) -> Self {
         // If the system's size allows it, `max_cap` is big enough to hold all unique `K`s.
@@ -158,6 +183,16 @@ impl<K: PrimInt + Unsigned, V> SparseMap<K, V> {
     /// # Panics
     ///
     /// If `key` cannot be cast to `usize`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thinset::{map, SparseMap};
+    ///
+    /// let map: SparseMap<u32, u32> = map![(0, 1), (1, 2), (2, 3)];
+    /// assert!(map.contains(1));
+    /// assert!(!map.contains(3));
+    /// ```
     pub fn contains(&self, key: K) -> bool {
         let ukey = key.to_usize().unwrap();
         if ukey >= self.cap {
@@ -178,6 +213,16 @@ impl<K: PrimInt + Unsigned, V> SparseMap<K, V> {
     /// # Panics
     ///
     /// If `key` cannot be cast to `usize`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thinset::{map, SparseMap};
+    ///
+    /// let mut map: SparseMap<u32, u32> = map![(0, 1), (1, 2), (2, 3)];
+    /// assert_eq!(map.insert(1, 4), false);
+    /// assert_eq!(map.insert(3, 4), true);
+    /// ```
     pub fn insert(&mut self, key: K, value: V) -> bool {
         let ukey = key.to_usize().unwrap();
         if ukey >= self.cap {
@@ -218,6 +263,16 @@ impl<K: PrimInt + Unsigned, V> SparseMap<K, V> {
     /// # Panics
     ///
     /// If `key` cannot be cast to `usize`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thinset::{map, SparseMap};
+    ///
+    /// let map: SparseMap<u32, u32> = map![(0, 1), (1, 2), (2, 3)];
+    /// assert_eq!(map.get(1), Some(&2));
+    /// assert_eq!(map.get(3), None);
+    /// ```
     pub fn get(&self, key: K) -> Option<&V> {
         let ukey = key.to_usize().unwrap();
         if ukey >= self.cap {
@@ -238,6 +293,16 @@ impl<K: PrimInt + Unsigned, V> SparseMap<K, V> {
     /// # Panics
     ///
     /// If `key` cannot be cast to `usize`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thinset::{map, SparseMap};
+    ///
+    /// let mut map: SparseMap<u32, u32> = map![(0, 1), (1, 2), (2, 3)];
+    /// assert_eq!(map.get_mut(1), Some(&mut 2));
+    /// assert_eq!(map.get_mut(3), None);
+    /// ```
     pub fn get_mut(&mut self, key: K) -> Option<&mut V> {
         let ukey = key.to_usize().unwrap();
         if ukey >= self.cap {
@@ -263,6 +328,16 @@ impl<K: PrimInt + Unsigned, V> SparseMap<K, V> {
     /// # Panics
     ///
     /// If `key` cannot be cast to `usize`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thinset::{map, SparseMap};
+    ///
+    /// let mut map: SparseMap<u32, u32> = map![(0, 1), (1, 2), (2, 3)];
+    /// assert_eq!(map.update(1, |n| n * 2, 0), true);
+    /// assert_eq!(map.update(3, |n| n * 2, 0), false);
+    /// ```
     pub fn update<F>(&mut self, key: K, f: F, default: V) -> bool
     where
         F: Fn(&V) -> V,
@@ -283,38 +358,69 @@ impl<K: PrimInt + Unsigned, V> SparseMap<K, V> {
         }
     }
 
-    /// Removes a key-value pair from the map. Returns whether the pair was present in the set.
+    /// Removes a key-value pair from the map. Returns the value if the key was previously in the map.
     ///
     /// # Panics
     ///
     /// If `key` cannot be cast to `usize`.
-    pub fn remove(&mut self, key: K) -> bool {
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thinset::{map, SparseMap};
+    ///
+    /// let mut map: SparseMap<u32, u32> = map![(0, 1), (1, 2), (2, 3)];
+    /// assert_eq!(map.remove(1), Some(2));
+    /// assert_eq!(map.remove(1), None);
+    /// ```
+    pub fn remove(&mut self, key: K) -> Option<V> {
         let ukey = key.to_usize().unwrap();
         if ukey >= self.cap {
-            return false;
+            return None;
         }
 
         let r = self.sparse[ukey];
 
         // Remove only if the pair is part of the map.
         if r < self.dense.len() && self.dense[r].key == key {
-            // Remove the pair by giving its slot to the last pair in `dense`.
-            let last_pair = &self.dense[self.dense.len() - 1];
-            self.sparse[last_pair.key.to_usize().unwrap()] = r; // Update `last_pair`'s link into `sparse`.
-            self.dense.swap_remove(r); // Swap `last_pair` with the pair to remove (at `r`).
+            // Update the last pair's index in `sparse`.
+            self.sparse[self.dense.last().unwrap().key.to_usize().unwrap()] = r;
 
-            return true;
+            // Swap the last pair with the pair to remove and remove the last pair.
+            let removed_pair = self.dense.swap_remove(r);
+
+            return Some(removed_pair.value);
         }
 
-        false
+        None
     }
 
     /// Returns true if the set contains no elements.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thinset::{map, SparseMap};
+    ///
+    /// let mut map: SparseMap<u32, u32> = map![(0, 1), (1, 2), (2, 3)];
+    /// assert!(!map.is_empty());
+    /// map.clear();
+    /// assert!(map.is_empty());
+    /// ```
     pub fn is_empty(&self) -> bool {
         self.dense.is_empty()
     }
 
     /// Returns the number of elements in the map.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thinset::{map, SparseMap};
+    ///
+    /// let mut map: SparseMap<u32, u32> = map![(0, 1), (1, 2), (2, 3)];
+    /// assert_eq!(map.len(), 3);
+    /// ```
     pub fn len(&self) -> usize {
         self.dense.len()
     }
@@ -322,6 +428,16 @@ impl<K: PrimInt + Unsigned, V> SparseMap<K, V> {
     /// Removes all elements from the map.
     ///
     /// This operation is O(1). It does not deallocate memory.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thinset::{map, SparseMap};
+    ///
+    /// let mut map: SparseMap<u32, u32> = map![(0, 1), (1, 2), (2, 3)];
+    /// map.clear();
+    /// assert!(map.is_empty());
+    /// ```
     pub fn clear(&mut self) {
         // The dense array contains pairs of integers, so no destructors need to be called.
         self.dense.clear();
@@ -514,7 +630,7 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
     ///
     /// If `value` cannot be cast to `usize`.
     pub fn remove(&mut self, value: T) -> bool {
-        self.inner.remove(value)
+        self.inner.remove(value).is_some()
     }
 
     /// Returns true if the set contains no elements.
@@ -988,8 +1104,8 @@ mod tests {
         assert!(m.contains(390));
         assert!(m.insert(200, 10));
         assert!(m.contains(200));
-        assert!(m.remove(390));
-        assert!(m.remove(200));
+        assert_eq!(m.remove(390), Some(0));
+        assert_eq!(m.remove(200), Some(10));
     }
 
     #[test]
@@ -1111,6 +1227,24 @@ mod tests {
 
         map2.insert(3, f64::NAN);
         assert_ne!(map1, map2);
+    }
+
+    #[test]
+    fn sparse_map_non_copy_data() {
+        let mut map: SparseMap<u32, String> = SparseMap::new();
+        map.insert(1, "hello".to_string());
+        map.insert(2, "world".to_string());
+        assert_eq!(map.get(1), Some(&"hello".to_string()));
+        assert_eq!(map.get(2), Some(&"world".to_string()));
+
+        map.update(1, |s| s.to_uppercase(), "foo".to_string());
+        assert_eq!(map.get(1), Some(&"HELLO".to_string()));
+
+        map.remove(1);
+        assert_eq!(map.get(1), None);
+
+        map.clear();
+        assert!(map.is_empty());
     }
 
     #[test]
