@@ -383,10 +383,13 @@ impl<K: PrimInt + Unsigned, V> SparseMap<K, V> {
 
         // Remove only if the pair is part of the map.
         if r < self.dense.len() && self.dense[r].key == key {
-            // Update the last pair's index in `sparse`.
+            // Remove the pair by giving its slot to the last pair in `dense`.
+            // First, update the last pair's slot in `sparse` to point to where the last pair's new location will be.
             self.sparse[self.dense.last().unwrap().key.to_usize().unwrap()] = r;
 
-            // Swap the last pair with the pair to remove and remove the last pair.
+            // Then, swap the pair we're removing with the last pair in `dense`, and remove the last pair.
+            // For example, if `dense` was [A, B, C] and we were removing A, we'd swap A with C and remove C,
+            // leaving [C, B].
             let removed_pair = self.dense.swap_remove(r);
 
             return Some(removed_pair.value);
