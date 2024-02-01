@@ -94,29 +94,39 @@ use num_traits::Unsigned;
 
 /// A pair stored in the map. Mostly used for readability advantages over (,).
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct Pair<K: PrimInt + Unsigned, V: Copy> {
+pub struct Pair<K, V> {
     pub key: K,
     pub value: V,
 }
 
-impl<K: PrimInt + Unsigned, V: Copy> Pair<K, V> {
+impl<K, V> Pair<K, V> {
     fn new(key: K, value: V) -> Self {
         Pair { key, value }
     }
 }
 
-/// A sparse map of unsigned integer keys to integer values (or anything else that's copy).
-pub struct SparseMap<K: PrimInt + Unsigned, V: Copy> {
+/// A sparse map of unsigned integer keys to values.
+pub struct SparseMap<K: PrimInt + Unsigned, V> {
     cap: usize,
     sparse: Vec<usize>,
     dense: Vec<Pair<K, V>>,
 }
 
-impl<K: PrimInt + Unsigned, V: Copy> SparseMap<K, V> {
+impl<K: PrimInt + Unsigned, V> SparseMap<K, V> {
     /// Creates an empty SparseMap.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thinset::SparseMap;
+    ///
+    /// let map: SparseMap<u32, u32> = SparseMap::new();
+    /// assert!(map.is_empty());
+    /// ```
     pub fn new() -> Self {
         Self::with_capacity(0x1000)
     }
+
     /// Creates an empty SparseMap that's allocated to store elements
     /// with keys up to `cap - 1`. If bigger keys get inserted, the
     /// map grows automatically.
@@ -126,6 +136,21 @@ impl<K: PrimInt + Unsigned, V: Copy> SparseMap<K, V> {
     /// For example, if `K` is `u8` and the capacity `10000` is given, only `255`
     /// elements will be allocated, because it's impossible for a set of `u8`s to hold
     /// any more elements than `255`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thinset::SparseMap;
+    ///
+    /// let mut map: SparseMap<u8, u32> = SparseMap::with_capacity(100);
+    /// assert!(map.is_empty());
+    ///
+    /// // The map's initial capacity is 100, but it can grow to hold more elements.
+    /// for i in 0..200 {
+    ///    map.insert(i, 0);
+    /// }
+    /// assert_eq!(map.len(), 200);
+    /// ```
     #[allow(clippy::uninit_vec)]
     pub fn with_capacity(cap: usize) -> Self {
         // If the system's size allows it, `max_cap` is big enough to hold all unique `K`s.
@@ -158,6 +183,16 @@ impl<K: PrimInt + Unsigned, V: Copy> SparseMap<K, V> {
     /// # Panics
     ///
     /// If `key` cannot be cast to `usize`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thinset::{map, SparseMap};
+    ///
+    /// let map: SparseMap<u32, u32> = map![(0, 1), (1, 2), (2, 3)];
+    /// assert!(map.contains(1));
+    /// assert!(!map.contains(3));
+    /// ```
     pub fn contains(&self, key: K) -> bool {
         let ukey = key.to_usize().unwrap();
         if ukey >= self.cap {
@@ -178,6 +213,16 @@ impl<K: PrimInt + Unsigned, V: Copy> SparseMap<K, V> {
     /// # Panics
     ///
     /// If `key` cannot be cast to `usize`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thinset::{map, SparseMap};
+    ///
+    /// let mut map: SparseMap<u32, u32> = map![(0, 1), (1, 2), (2, 3)];
+    /// assert_eq!(map.insert(1, 4), false);
+    /// assert_eq!(map.insert(3, 4), true);
+    /// ```
     pub fn insert(&mut self, key: K, value: V) -> bool {
         let ukey = key.to_usize().unwrap();
         if ukey >= self.cap {
@@ -218,6 +263,16 @@ impl<K: PrimInt + Unsigned, V: Copy> SparseMap<K, V> {
     /// # Panics
     ///
     /// If `key` cannot be cast to `usize`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thinset::{map, SparseMap};
+    ///
+    /// let map: SparseMap<u32, u32> = map![(0, 1), (1, 2), (2, 3)];
+    /// assert_eq!(map.get(1), Some(&2));
+    /// assert_eq!(map.get(3), None);
+    /// ```
     pub fn get(&self, key: K) -> Option<&V> {
         let ukey = key.to_usize().unwrap();
         if ukey >= self.cap {
@@ -238,6 +293,16 @@ impl<K: PrimInt + Unsigned, V: Copy> SparseMap<K, V> {
     /// # Panics
     ///
     /// If `key` cannot be cast to `usize`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thinset::{map, SparseMap};
+    ///
+    /// let mut map: SparseMap<u32, u32> = map![(0, 1), (1, 2), (2, 3)];
+    /// assert_eq!(map.get_mut(1), Some(&mut 2));
+    /// assert_eq!(map.get_mut(3), None);
+    /// ```
     pub fn get_mut(&mut self, key: K) -> Option<&mut V> {
         let ukey = key.to_usize().unwrap();
         if ukey >= self.cap {
@@ -263,9 +328,19 @@ impl<K: PrimInt + Unsigned, V: Copy> SparseMap<K, V> {
     /// # Panics
     ///
     /// If `key` cannot be cast to `usize`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thinset::{map, SparseMap};
+    ///
+    /// let mut map: SparseMap<u32, u32> = map![(0, 1), (1, 2), (2, 3)];
+    /// assert_eq!(map.update(1, |n| n * 2, 0), true);
+    /// assert_eq!(map.update(3, |n| n * 2, 0), false);
+    /// ```
     pub fn update<F>(&mut self, key: K, f: F, default: V) -> bool
     where
-        F: Fn(V) -> V,
+        F: Fn(&V) -> V,
     {
         let ukey = key.to_usize().unwrap();
         if ukey >= self.cap {
@@ -275,7 +350,7 @@ impl<K: PrimInt + Unsigned, V: Copy> SparseMap<K, V> {
 
         let r = self.sparse[ukey];
         if r < self.dense.len() && self.dense[r].key == key {
-            self.dense[r].value = f(self.dense[r].value);
+            self.dense[r].value = f(&self.dense[r].value);
             true
         } else {
             self.insert(key, default);
@@ -283,15 +358,25 @@ impl<K: PrimInt + Unsigned, V: Copy> SparseMap<K, V> {
         }
     }
 
-    /// Removes a key-value pair from the map. Returns whether the pair was present in the set.
+    /// Removes a key-value pair from the map. Returns the value if the key was previously in the map.
     ///
     /// # Panics
     ///
     /// If `key` cannot be cast to `usize`.
-    pub fn remove(&mut self, key: K) -> bool {
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thinset::{map, SparseMap};
+    ///
+    /// let mut map: SparseMap<u32, u32> = map![(0, 1), (1, 2), (2, 3)];
+    /// assert_eq!(map.remove(1), Some(2));
+    /// assert_eq!(map.remove(1), None);
+    /// ```
+    pub fn remove(&mut self, key: K) -> Option<V> {
         let ukey = key.to_usize().unwrap();
         if ukey >= self.cap {
-            return false;
+            return None;
         }
 
         let r = self.sparse[ukey];
@@ -299,25 +384,46 @@ impl<K: PrimInt + Unsigned, V: Copy> SparseMap<K, V> {
         // Remove only if the pair is part of the map.
         if r < self.dense.len() && self.dense[r].key == key {
             // Remove the pair by giving its slot to the last pair in `dense`.
-            let last_pair = self.dense[self.dense.len() - 1];
-            self.sparse[last_pair.key.to_usize().unwrap()] = r; // Update `last_pair`'s link into `sparse`.
-            self.dense[r] = last_pair;
+            // First, update the last pair's slot in `sparse` to point to where the last pair's new location will be.
+            self.sparse[self.dense.last().unwrap().key.to_usize().unwrap()] = r;
 
-            // Delete the now expendable copy of `last_pair`.
-            self.dense.pop();
+            // Then, swap the pair we're removing with the last pair in `dense`, and remove the last pair.
+            // For example, if `dense` was [A, B, C] and we were removing A, we'd swap A with C and remove C,
+            // leaving [C, B].
+            let removed_pair = self.dense.swap_remove(r);
 
-            return true;
+            return Some(removed_pair.value);
         }
 
-        false
+        None
     }
 
     /// Returns true if the set contains no elements.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thinset::{map, SparseMap};
+    ///
+    /// let mut map: SparseMap<u32, u32> = map![(0, 1), (1, 2), (2, 3)];
+    /// assert!(!map.is_empty());
+    /// map.clear();
+    /// assert!(map.is_empty());
+    /// ```
     pub fn is_empty(&self) -> bool {
         self.dense.is_empty()
     }
 
     /// Returns the number of elements in the map.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thinset::{map, SparseMap};
+    ///
+    /// let mut map: SparseMap<u32, u32> = map![(0, 1), (1, 2), (2, 3)];
+    /// assert_eq!(map.len(), 3);
+    /// ```
     pub fn len(&self) -> usize {
         self.dense.len()
     }
@@ -325,6 +431,16 @@ impl<K: PrimInt + Unsigned, V: Copy> SparseMap<K, V> {
     /// Removes all elements from the map.
     ///
     /// This operation is O(1). It does not deallocate memory.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use thinset::{map, SparseMap};
+    ///
+    /// let mut map: SparseMap<u32, u32> = map![(0, 1), (1, 2), (2, 3)];
+    /// map.clear();
+    /// assert!(map.is_empty());
+    /// ```
     pub fn clear(&mut self) {
         // The dense array contains pairs of integers, so no destructors need to be called.
         self.dense.clear();
@@ -349,7 +465,7 @@ impl<K: PrimInt + Unsigned, V: Copy> SparseMap<K, V> {
     }
 }
 
-impl<K: PrimInt + Unsigned + Debug, V: Copy + Debug> Debug for SparseMap<K, V> {
+impl<K: PrimInt + Unsigned + Debug, V: Debug> Debug for SparseMap<K, V> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut d = f.debug_map();
         for pair in &self.dense {
@@ -359,7 +475,7 @@ impl<K: PrimInt + Unsigned + Debug, V: Copy + Debug> Debug for SparseMap<K, V> {
     }
 }
 
-impl<K: PrimInt + Unsigned, V: Copy + PartialEq> PartialEq for SparseMap<K, V> {
+impl<K: PrimInt + Unsigned, V: PartialEq> PartialEq for SparseMap<K, V> {
     fn eq(&self, other: &Self) -> bool {
         if self.len() != other.len() {
             return false;
@@ -380,7 +496,7 @@ impl<K: PrimInt + Unsigned, V: Copy + PartialEq> PartialEq for SparseMap<K, V> {
     }
 }
 
-impl<K: PrimInt + Unsigned, V: Copy + Eq> Eq for SparseMap<K, V> {}
+impl<K: PrimInt + Unsigned, V: Eq> Eq for SparseMap<K, V> {}
 
 /// An iterator over the key-value pairs of a [`SparseMap`].
 ///
@@ -388,9 +504,9 @@ impl<K: PrimInt + Unsigned, V: Copy + Eq> Eq for SparseMap<K, V> {}
 ///
 /// [`iter`]: SparseMap::iter
 #[derive(Clone)]
-pub struct SparseMapIter<'a, K: PrimInt + Unsigned, V: Copy>(std::slice::Iter<'a, Pair<K, V>>);
+pub struct SparseMapIter<'a, K: PrimInt + Unsigned, V>(std::slice::Iter<'a, Pair<K, V>>);
 
-impl<'a, K: PrimInt + Unsigned, V: Copy> Iterator for SparseMapIter<'a, K, V> {
+impl<'a, K: PrimInt + Unsigned, V> Iterator for SparseMapIter<'a, K, V> {
     type Item = &'a Pair<K, V>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -402,7 +518,7 @@ impl<'a, K: PrimInt + Unsigned, V: Copy> Iterator for SparseMapIter<'a, K, V> {
     }
 }
 
-impl<K: PrimInt + Unsigned, V: Copy> Clone for SparseMap<K, V> {
+impl<K: PrimInt + Unsigned, V: Clone> Clone for SparseMap<K, V> {
     fn clone(&self) -> Self {
         Self {
             cap: self.cap,
@@ -412,14 +528,14 @@ impl<K: PrimInt + Unsigned, V: Copy> Clone for SparseMap<K, V> {
     }
 }
 
-impl<K: PrimInt + Unsigned, V: Copy> Default for SparseMap<K, V> {
+impl<K: PrimInt + Unsigned, V> Default for SparseMap<K, V> {
     fn default() -> Self {
         Self::new()
     }
 }
 
 // `IntoIterator` implementation for [`SparseMap`].
-impl<K: PrimInt + Unsigned, V: Copy> IntoIterator for SparseMap<K, V> {
+impl<K: PrimInt + Unsigned, V> IntoIterator for SparseMap<K, V> {
     type Item = Pair<K, V>;
     type IntoIter = SparseMapIntoIter<K, V>;
 
@@ -436,11 +552,11 @@ impl<K: PrimInt + Unsigned, V: Copy> IntoIterator for SparseMap<K, V> {
 ///
 /// [`into_iter`]: SparseMap::iter
 #[derive(Clone)]
-pub struct SparseMapIntoIter<K: PrimInt + Unsigned, V: Copy> {
+pub struct SparseMapIntoIter<K: PrimInt + Unsigned, V> {
     iter: std::vec::IntoIter<Pair<K, V>>,
 }
 
-impl<K: PrimInt + Unsigned, V: Copy> Iterator for SparseMapIntoIter<K, V> {
+impl<K: PrimInt + Unsigned, V> Iterator for SparseMapIntoIter<K, V> {
     type Item = Pair<K, V>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -452,7 +568,7 @@ impl<K: PrimInt + Unsigned, V: Copy> Iterator for SparseMapIntoIter<K, V> {
     }
 }
 
-impl<K: PrimInt + Unsigned, V: Copy> std::ops::Index<K> for SparseMap<K, V> {
+impl<K: PrimInt + Unsigned, V> std::ops::Index<K> for SparseMap<K, V> {
     type Output = V;
 
     fn index(&self, key: K) -> &Self::Output {
@@ -460,7 +576,7 @@ impl<K: PrimInt + Unsigned, V: Copy> std::ops::Index<K> for SparseMap<K, V> {
     }
 }
 
-impl<K: PrimInt + Unsigned, V: Copy> std::ops::IndexMut<K> for SparseMap<K, V> {
+impl<K: PrimInt + Unsigned, V> std::ops::IndexMut<K> for SparseMap<K, V> {
     fn index_mut(&mut self, key: K) -> &mut Self::Output {
         self.get_mut(key).unwrap()
     }
@@ -517,7 +633,7 @@ impl<T: PrimInt + Unsigned> SparseSet<T> {
     ///
     /// If `value` cannot be cast to `usize`.
     pub fn remove(&mut self, value: T) -> bool {
-        self.inner.remove(value)
+        self.inner.remove(value).is_some()
     }
 
     /// Returns true if the set contains no elements.
@@ -919,7 +1035,7 @@ mod tests {
 
         map.update(41, |n| n * n, 0);
         assert_eq!(map.get(41), Some(&4));
-        map.update(14, |n| n, 10);
+        map.update(14, |n| *n, 10);
         assert_eq!(map.get(14), Some(&10));
 
         map.clear();
@@ -991,8 +1107,8 @@ mod tests {
         assert!(m.contains(390));
         assert!(m.insert(200, 10));
         assert!(m.contains(200));
-        assert!(m.remove(390));
-        assert!(m.remove(200));
+        assert_eq!(m.remove(390), Some(0));
+        assert_eq!(m.remove(200), Some(10));
     }
 
     #[test]
@@ -1114,6 +1230,24 @@ mod tests {
 
         map2.insert(3, f64::NAN);
         assert_ne!(map1, map2);
+    }
+
+    #[test]
+    fn sparse_map_non_copy_data() {
+        let mut map: SparseMap<u32, String> = SparseMap::new();
+        map.insert(1, "hello".to_string());
+        map.insert(2, "world".to_string());
+        assert_eq!(map.get(1), Some(&"hello".to_string()));
+        assert_eq!(map.get(2), Some(&"world".to_string()));
+
+        map.update(1, |s| s.to_uppercase(), "foo".to_string());
+        assert_eq!(map.get(1), Some(&"HELLO".to_string()));
+
+        map.remove(1);
+        assert_eq!(map.get(1), None);
+
+        map.clear();
+        assert!(map.is_empty());
     }
 
     #[test]
