@@ -34,7 +34,7 @@ Add this to your Cargo.toml:
 
 ```toml
 [dependencies]
-thinset = "0.1"
+thinset = "0.4"
 ```
 
 ### Description
@@ -128,6 +128,10 @@ for Pair {key, value} in m.iter() {
     println!("{key}:{value}");
 }
 ```
+
+#### Architecture
+
+Take a look the [ARCHITECTURE.md](ARCHITECTURE.md) file to learn about the core design choices behind `thinset`, and about salient features of its implementation.
 
 <!-- cargo-rdme end -->
 
