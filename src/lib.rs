@@ -8,7 +8,8 @@
 //! Compared to a bitmap-based set, iteration over the set is
 //! proportional to the cardinality of the set (how many elements you have) instead of proportional to the maximum size of the set.
 //!
-//! The main downside is that the set uses more memory than other set implementations.
+//! The main downside is that the set uses more memory than other set implementations. Its ideal usage is in
+//! scenarios where the same set(s) can be reused many times (e.g. by using the `clear` operation).
 //!
 //! The map behaves identically to the set with the exception that it tracks data alongside
 //! the values that are stored in the set. Under the hood, `SparseSet` is a `SparseMap` of keys to `()`.
