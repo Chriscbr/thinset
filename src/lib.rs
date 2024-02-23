@@ -34,18 +34,19 @@
 //! The following benchmarks were run on a 2020 MacBook Pro with a 2 GHz Intel Core i5 processor.
 //!
 //! The benchmark compares `SparseSet` to the standard library's `HashSet` and the `bit-set` crate's `BitSet`.
+//! It assumes the set is being reused by the program and new sets do not need to be created often.
 //!
-//! When inserting 1000 random elements into the set from a universe of [0, 2^16) and then iterating over the set,
-//! the sparse set is **4.1x** faster than the `HashSet` and **1.7x** faster than the `BitSet`:
+//! When inserting 1000 random elements into the set from a universe of [0, 2^16) iterating over the set, and clearing it,
+//! the sparse set is **1.7** faster than the `HashSet` and **1.6x** faster than the `BitSet`:
 //!
-//! - `SparseSet`: 160,329 ns/iter (+/- 55,664)
-//! - `BitSet`: 278,428 ns/iter (+/- 42,477)
-//! - `HashSet`: 662,964 ns/iter (+/- 56,851)
+//! - `SparseSet`: 9,574 ns/iter (+/- 87)
+//! - `BitSet`: 15,318 ns/iter (+/- 171)
+//! - `HashSet`: 16,613 ns/iter (+/- 311)
 //!
 //! Benchmarks are available in examples/bench.rs and can be run with the following command:
 //!
 //! ```bash
-//! cargo run --example bench
+//! cargo run --example bench --release
 //! ```
 //!
 //! # Examples
@@ -160,16 +161,13 @@ impl<K: PrimInt + Unsigned, V> SparseMap<K, V> {
             .saturating_add(1);
         let cap = cap.min(max_cap);
 
-        // Allocate a vector size `cap` and initialize it with garbage values.
-        // SAFETY: The call to `with_capacity(cap)` ensures that `set_len(cap)`
-        // will succeed. `sparse` maybe be filled with garbage simply based on how
-        // the map works. An element is only considered part of the map if the entires
-        // in `dense` and `sparse` are linked correctly. Thus, memory in `sparse` must
-        // not be initialized.
-        let mut sparse = Vec::with_capacity(cap);
-        unsafe {
-            sparse.set_len(cap);
-        }
+        // Allocate a vec of `cap` zeroed elements. In the original paper, the `sparse`
+        // array would be left uninitialized, and the algorithm would work with garbage
+        // values from memory. However, in Rust it's never safe to access uninitialized
+        // memory [1], so we must zero the array to avoid undefined behavior.
+        //
+        // [1]: https://www.ralfj.de/blog/2019/07/14/uninit.html
+        let sparse = vec![0; cap];
 
         Self {
             cap,
@@ -247,13 +245,8 @@ impl<K: PrimInt + Unsigned, V> SparseMap<K, V> {
         let cap = new_max
             .checked_add(1)
             .expect("maximum key is greater than the maximum allowed by the system's usize");
-        // SAFETY: The call to `reserve_exact(cap - self.sparse.len())` ensures that the capacity is
-        // greater or equal to `cap` so that `set_len(cap)` will succeed. See `Self::with_capacity`
-        // for more info on uninitialized memory in `sparse`.
-        self.sparse.reserve_exact(cap - self.sparse.len());
-        unsafe {
-            self.sparse.set_len(cap);
-        }
+        self.sparse
+            .extend(std::iter::repeat(0).take(cap - self.cap));
 
         self.cap = cap;
     }
