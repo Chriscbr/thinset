@@ -51,7 +51,8 @@ Compared to the standard library's `HashSet`, clearing a set is O(1) instead of 
 Compared to a bitmap-based set, iteration over the set is
 proportional to the cardinality of the set (how many elements you have) instead of proportional to the maximum size of the set.
 
-The main downside is that the set uses more memory than other set implementations.
+The main downside is that the set uses more memory than other set implementations. Its ideal usage is in
+scenarios where the same set(s) can be reused many times (e.g. by using the `clear` operation).
 
 The map behaves identically to the set with the exception that it tracks data alongside
 the values that are stored in the set. Under the hood, `SparseSet` is a `SparseMap` of keys to `()`.
@@ -77,18 +78,19 @@ The table below compares the asymptotic complexities of several set operations f
 The following benchmarks were run on a 2020 MacBook Pro with a 2 GHz Intel Core i5 processor.
 
 The benchmark compares `SparseSet` to the standard library's `HashSet` and the `bit-set` crate's `BitSet`.
+It assumes the set is being reused by the program and new sets do not need to be created often.
 
-When inserting 1000 random elements into the set from a universe of [0, 2^16) and then iterating over the set,
-the sparse set is **4.1x** faster than the `HashSet` and **1.7x** faster than the `BitSet`:
+When inserting 1000 random elements into the set from a universe of [0, 2^16) iterating over the set, and clearing it,
+the sparse set is **1.7** faster than the `HashSet` and **1.6x** faster than the `BitSet`:
 
-- `SparseSet`: 160,329 ns/iter (+/- 55,664)
-- `BitSet`: 278,428 ns/iter (+/- 42,477)
-- `HashSet`: 662,964 ns/iter (+/- 56,851)
+- `SparseSet`: 9,574 ns/iter (+/- 87)
+- `BitSet`: 15,318 ns/iter (+/- 171)
+- `HashSet`: 16,613 ns/iter (+/- 311)
 
 Benchmarks are available in examples/bench.rs and can be run with the following command:
 
 ```bash
-cargo run --example bench
+cargo run --example bench --release
 ```
 
 #### Examples
